@@ -352,13 +352,18 @@ function aSubjects(){
    +'<div><label>สัดส่วนปลายปี</label><input id="sRf" type="number" value="30"></div></div>'
    +'<p><button class="pri" id="sAdd">บันทึกรายวิชา</button></p><h3>รายวิชาทั้งหมด</h3><div class="sc"><table><thead><tr><th>ชั้น</th><th>รหัส</th><th class="l">ชื่อ</th><th>ภาค/ปี</th><th class="l">ครู</th><th>สัดส่วน</th><th></th></tr></thead><tbody>';
   a.subjects.sort(function(x,y){return (x.classLevel+x.code)<(y.classLevel+y.code)?-1:1;}).forEach(function(s){
-    h+='<tr><td>'+esc(s.classLevel)+'</td><td>'+esc(s.code)+'</td><td class="l">'+esc(s.name)+'</td><td>'+esc(s.term)+'/'+esc(s.year)+'</td><td class="l">'+esc(s.teacherEmail)+'</td><td>'+esc(s.ratioDuring)+':'+esc(s.ratioFinal)+'</td><td><button class="dan" data-del="'+esc(s.key)+'">ลบ</button></td></tr>';
+    h+='<tr><td>'+esc(s.classLevel)+'</td><td>'+esc(s.code)+'</td><td class="l">'+esc(s.name)+'</td><td>'+esc(s.term)+'/'+esc(s.year)+'</td><td class="l">'+esc(s.teacherEmail)+'</td><td>'+esc(s.ratioDuring)+':'+esc(s.ratioFinal)+'</td><td><button data-edit="'+esc(s.key)+'">แก้ไข</button> <button class="dan" data-del="'+esc(s.key)+'">ลบ</button></td></tr>';
   });
   $('atab').innerHTML=h+'</tbody></table></div>';
   $('sAdd').onclick=function(){
     api('adminSaveSubject',S.token,{classLevel:$('sC').value,code:$('sCode').value,name:$('sName').value,group:$('sGrp').value,hours:$('sHr').value,teacherEmail:$('sT').value,term:$('sTerm').value,year:$('sYear').value,ratioDuring:$('sRd').value,ratioFinal:$('sRf').value})
       .then(function(){return aDone('บันทึกรายวิชาแล้ว');}).catch(aErr);
   };
+  [].forEach.call(document.querySelectorAll('[data-edit]'),function(b){ b.onclick=function(){
+    var s=a.subjects.filter(function(x){return x.key===b.dataset.edit;})[0]; if(!s) return;
+    $('sC').value=s.classLevel; $('sCode').value=s.code; $('sName').value=s.name; $('sGrp').value=s.group||''; $('sHr').value=s.hours||'';
+    $('sT').value=s.teacherEmail||''; $('sTerm').value=s.term; $('sYear').value=s.year; $('sRd').value=s.ratioDuring; $('sRf').value=s.ratioFinal;
+    window.scrollTo(0,0); note($('aMsg'),'โหลดข้อมูลลงฟอร์มแล้ว — เลือกครูผู้สอนแล้วกด "บันทึกรายวิชา"'); }; });
   [].forEach.call(document.querySelectorAll('[data-del]'),function(b){ b.onclick=function(){
     if(confirm('ลบรายวิชานี้พร้อมคะแนนทั้งหมด?')) api('adminDeleteSubject',S.token,b.dataset.del).then(function(){return aDone('ลบแล้ว');}).catch(aErr); }; });
 }
