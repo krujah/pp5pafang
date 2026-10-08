@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ระบบ ปพ.5</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--ink:#1f2430;--mute:#6b7280;--line:#e3e6ee;--pri:#2457d6;--pri2:#e8efff;--ok:#0f8a5f;--bad:#c62828;--warn:#fff4d6}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--ink);font-size:16px}
+header{background:var(--pri);color:#fff;padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+header h1{font-size:18px;margin:0;flex:1}
+header button{background:rgba(255,255,255,.15);color:#fff;border:0}
+main{max-width:1100px;margin:16px auto;padding:0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+h2{font-size:18px;margin:0 0 12px}
+button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer}
+button.pri{background:var(--pri);color:#fff;border-color:var(--pri)}
+button.dan{color:var(--bad)}
+button:disabled{opacity:.5;cursor:default}
+input,select{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:#fff;max-width:100%}
+label{display:block;font-size:14px;color:var(--mute);margin:8px 0 3px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+table{border-collapse:collapse;width:100%}
+th,td{border:1px solid var(--line);padding:5px 7px;text-align:center}
+th{background:#f0f3fa;font-weight:600}
+td.l,th.l{text-align:left}
+.sc{overflow:auto;max-height:70vh}
+.sc input{width:64px;text-align:center;padding:4px}
+.sc input.bad{background:#ffe0e0;border-color:var(--bad)}
+.sc input.dirty{background:var(--warn)}
+.sticky{position:sticky;left:0;background:#fff;z-index:1}
+.msg{padding:8px 12px;border-radius:8px;margin:8px 0;background:var(--pri2)}
+.msg.err{background:#ffe3e3;color:var(--bad)}
+.tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.tabs button.on{background:var(--pri2);border-color:var(--pri);color:var(--pri);font-weight:600}
+.mute{color:var(--mute);font-size:14px}
+.sub{cursor:pointer}.sub:hover{border-color:var(--pri)}
+#login{max-width:360px;margin:12vh auto}
+.hide{display:none!important}
+#print{display:none}
+@media print{
+  body{background:#fff}header,main{display:none!important}#pview button{display:none}
+  #print{display:block;font-family:'TH Sarabun New','Sarabun',sans-serif;font-size:14pt}
+  #print table th,#print table td{border:1px solid #000;padding:2px 4px}
+  @page{size:A4 landscape;margin:12mm}
+}
+</style>
+</head>
+<body>
+
+<div id="login" class="card hide">
+  <h2 id="loginTitle">เข้าสู่ระบบ ปพ.5</h2>
+  <label>อีเมล</label><input id="lEmail" type="email" style="width:100%" autocomplete="username">
+  <label>PIN</label><input id="lPin" type="password" inputmode="numeric" style="width:100%" autocomplete="current-password">
+  <div id="lMsg"></div>
+  <p><button class="pri" id="lBtn" style="width:100%">เข้าสู่ระบบ</button></p>
+  <p style="text-align:center"><a href="#" id="toParent">สำหรับผู้ปกครอง ดูผลการเรียน</a></p>
+</div>
+
+<div id="plogin" class="card hide" style="max-width:360px;margin:12vh auto">
+  <h2>ผู้ปกครอง · ดูผลการเรียน</h2>
+  <label>รหัสนักเรียน (ชั้น-เลขที่ เช่น ป.5-12)</label><input id="pId" style="width:100%" placeholder="ป.5-12" autocomplete="off">
+  <label>PIN 6 หลัก (จากใบที่โรงเรียนแจก)</label><input id="pPin" type="password" inputmode="numeric" style="width:100%" autocomplete="off">
+  <div id="pMsg"></div>
+  <p><button class="pri" id="pBtn" style="width:100%">ดูผลการเรียน</button></p>
+  <p style="text-align:center"><a href="#" id="toTeacher">สำหรับครู</a></p>
+</div>
+
+<div id="pview" class="hide" style="max-width:820px;margin:0 auto;padding:16px"></div>
+
+<header class="hide" id="hdr">
+  <h1 id="hTitle">ระบบ ปพ.5</h1>
+  <span id="hUser"></span>
+  <button id="bHome">รายวิชา</button>
+  <button id="bAdmin" class="hide">ผู้ดูแลระบบ</button>
+  <button id="bPin">เปลี่ยน PIN</button>
+  <button id="bOut">ออก</button>
+</header>
+<main id="main" class="hide"></main>
+<div id="print"></div>
+
+<script>
+var S = { token: null, boot: null, cur: null, dirty: {} };
+var $ = function (id) { return document.getElementById(id); };
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+// ====== ตั้งค่าตรงนี้ที่เดียว: วาง URL เว็บแอปของ Apps Script (ลงท้ายด้วย /exec) ======
+var API_URL = 'วาง_URL_ของ_APPS_SCRIPT_ที่นี่';
+// =====================================================================
+function api(fn){
+  var args=[].slice.call(arguments,1);
+  if(API_URL.indexOf('https://script.google.com/')!==0) return Promise.reject(new Error('ยังไม่ได้ตั้งค่า API_URL ในไฟล์ index.html'));
+  return fetch(API_URL,{method:'POST',body:JSON.stringify({fn:fn,args:args}),redirect:'follow'})
+    .then(function(r){ if(!r.ok) throw new Error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ('+r.status+')'); return r.json(); })
+    .then(function(j){
+      if(j.ok) return j.data;
+      var m=j.error||'เกิดข้อผิดพลาด';
+      if(m.indexOf('SESSION_EXPIRED')>=0){ doLogout(true); throw new Error('หมดเวลาการใช้งาน กรุณาเข้าสู่ระบบใหม่'); }
+      throw new Error(m.replace(/^Error:\s*/,''));
+    },function(e){ if(e instanceof TypeError) throw new Error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบอินเทอร์เน็ตหรือ API_URL'); throw e; });
+}
+function note(el,text,err){ el.innerHTML='<div class="msg'+(err?' err':'')+'">'+esc(text)+'</div>'; }
+
+/* ---- เกรด (ต้องตรงกับ gradeOf ใน Code.gs) ---- */
+function gradeOf(p){ if(p==null||isNaN(p))return''; return p>=80?4:p>=75?3.5:p>=70?3:p>=65?2.5:p>=60?2:p>=55?1.5:p>=50?1:0; }
+function calc(stu, d){
+  var sd=0,md=0,sf=0,mf=0,filled=0;
+  d.assessments.forEach(function(a){
+    var v=d.scores[stu.studentId+'|'+a.id], mx=Number(a.max);
+    if(a.type==='final'){ mf+=mx; if(v!==undefined&&v!==''){sf+=Number(v);filled++;} }
+    else { md+=mx; if(v!==undefined&&v!==''){sd+=Number(v);filled++;} }
+  });
+  var rd=Number(d.subject.ratioDuring), rf=Number(d.subject.ratioFinal);
+  var during = md? sd/md*rd : 0, fin = mf? sf/mf*rf : 0;
+  if(!md) { /* ไม่มีช่องปลายปี/ระหว่างเรียน -> คิดเฉพาะที่มี */ }
+  var total = during+fin;
+  var full = (md?rd:0)+(mf?rf:0);
+  var pct = full? total/full*100 : null;   // ถ้ามีครบทั้งสองส่วน full=100
+  return { during:during, fin:fin, total:total, pct:filled?pct:null, grade: filled?gradeOf(pct):'' };
+}
+function r2(x){ return (Math.round(x*100)/100).toString(); }
+
+/* ---- เข้าสู่ระบบ ---- */
+function showLogin(){ $('login').classList.remove('hide'); $('plogin').classList.add('hide'); $('pview').classList.add('hide'); $('hdr').classList.add('hide'); $('main').classList.add('hide'); }
+$('toParent').onclick=function(e){ e.preventDefault(); $('login').classList.add('hide'); $('plogin').classList.remove('hide'); };
+$('toTeacher').onclick=function(e){ e.preventDefault(); showLogin(); };
+
+/* ---- ผู้ปกครอง ---- */
+$('pBtn').onclick=function(){
+  $('pBtn').disabled=true;
+  api('parentLogin',$('pId').value,$('pPin').value).then(function(r){ S.ptoken=r.token; return api('parentData',r.token); })
+    .then(showParent).catch(function(e){ note($('pMsg'),e.message,true); }).then(function(){ $('pBtn').disabled=false; });
+};
+$('pPin').onkeydown=function(e){ if(e.key==='Enter') $('pBtn').click(); };
+function showParent(d){
+  $('plogin').classList.add('hide'); $('pview').classList.remove('hide'); $('pPin').value='';
+  var st=d.student, h='<div class="card"><div class="row"><div style="flex:1"><h2 style="margin:0">'+esc(d.school)+'</h2><div>ผลการเรียนของ <b>'+esc(st.name)+'</b> · ชั้น'+esc(st.classLevel)+' เลขที่ '+esc(st.no)+'</div></div><button id="pPrint">พิมพ์ / PDF</button><button id="pOut">ออก</button></div></div>';
+  if(!d.subjects.length) h+='<div class="card"><p class="mute">โรงเรียนยังไม่เปิดเผยผลการเรียนในขณะนี้</p></div>';
+  var gs=0,gn=0;
+  d.subjects.forEach(function(s){
+    if(s.grade!==''){gs+=Number(s.grade);gn++;}
+    h+='<div class="card"><div class="row"><b style="flex:1">'+esc(s.code)+' '+esc(s.name)+'</b><span class="mute">ภาคเรียน '+esc(s.term)+'/'+esc(s.year)+'</span></div><table style="margin-top:8px"><thead><tr><th class="l">รายการ</th><th>ประเภท</th><th>คะแนนเต็ม</th><th>ได้</th></tr></thead><tbody>';
+    s.items.forEach(function(i){ h+='<tr><td class="l">'+esc(i.name)+'</td><td>'+(i.type==='final'?'ปลายปี':'ระหว่างเรียน')+'</td><td>'+esc(i.max)+'</td><td>'+esc(i.score)+'</td></tr>'; });
+    h+='</tbody></table><p style="margin:8px 0 0">ระหว่างเรียน '+(s.grade===''?'-':r2(s.during))+'/'+esc(s.ratioDuring)+' · ปลายปี '+(s.grade===''?'-':r2(s.fin))+'/'+esc(s.ratioFinal)+' · รวม <b>'+(s.grade===''?'-':r2(s.total))+'</b> · เกรด <b style="font-size:20px;color:var(--pri)">'+(s.grade===''?'-':s.grade)+'</b></p></div>';
+  });
+  if(gn) h+='<div class="card">เกรดเฉลี่ยของรายวิชาที่แสดง (ไม่ถ่วงน้ำหนักหน่วยกิต): <b>'+r2(gs/gn)+'</b></div>';
+  $('pview').innerHTML=h;
+  $('pPrint').onclick=function(){ window.print(); };
+  $('pOut').onclick=function(){ api('parentLogout',S.ptoken).catch(function(){}); S.ptoken=null; $('pview').classList.add('hide'); $('plogin').classList.remove('hide'); };
+}
+$('lBtn').onclick=function(){
+  $('lBtn').disabled=true;
+  api('login',$('lEmail').value,$('lPin').value).then(function(r){
+    S.token=r.token; try{sessionStorage.setItem('pp5t',r.token);}catch(e){}
+    return start();
+  }).catch(function(e){ note($('lMsg'),e.message,true); }).then(function(){ $('lBtn').disabled=false; });
+};
+$('lPin').onkeydown=function(e){ if(e.key==='Enter') $('lBtn').click(); };
+function doLogout(silent){
+  if(!silent && S.token) api('logout',S.token).catch(function(){});
+  S.token=null; try{sessionStorage.removeItem('pp5t');}catch(e){}
+  showLogin();
+}
+$('bOut').onclick=function(){ doLogout(); };
+$('bHome').onclick=function(){ home(); };
+$('bAdmin').onclick=function(){ admin(); };
+$('bPin').onclick=function(){
+  var o=prompt('PIN เดิม'); if(o==null)return; var n=prompt('PIN ใหม่ (ตัวเลข 4–8 หลัก)'); if(n==null)return;
+  api('changePin',S.token,o,n).then(function(){alert('เปลี่ยน PIN แล้ว');}).catch(function(e){alert(e.message);});
+};
+
+function start(){
+  return api('bootstrap',S.token).then(function(b){
+    S.boot=b;
+    $('login').classList.add('hide'); $('hdr').classList.remove('hide'); $('main').classList.remove('hide');
+    $('hTitle').textContent=b.school+' · ระบบ ปพ.5 ปีการศึกษา '+b.year;
+    $('hUser').textContent=b.user.name;
+    $('bAdmin').classList.toggle('hide',b.user.role!=='admin');
+    home();
+  });
+}
+
+/* ---- หน้ารายวิชา ---- */
+function home(){
+  var b=S.boot, h='<div class="card"><h2>รายวิชาของฉัน</h2>';
+  if(!b.subjects.length) h+='<p class="mute">ยังไม่มีรายวิชาที่มอบหมายให้ — ติดต่อผู้ดูแลระบบ</p>';
+  var by={}; b.subjects.forEach(function(s){(by[s.classLevel]=by[s.classLevel]||[]).push(s);});
+  Object.keys(by).sort().forEach(function(c){
+    h+='<h3 style="margin:14px 0 6px">'+esc(c)+'</h3><div class="grid2">';
+    by[c].forEach(function(s){
+      h+='<div class="card sub" data-k="'+esc(s.key)+'" style="margin:0"><b>'+esc(s.code)+' '+esc(s.name)+'</b><div class="mute">ภาคเรียน '+esc(s.term)+'/'+esc(s.year)+' · ระหว่างเรียน:ปลายปี '+esc(s.ratioDuring)+':'+esc(s.ratioFinal)+'</div></div>';
+    });
+    h+='</div>';
+  });
+  $('main').innerHTML=h+'</div>';
+  [].forEach.call(document.querySelectorAll('.sub'),function(el){ el.onclick=function(){ openSubject(el.dataset.k); }; });
+}
+
+/* ---- กรอกคะแนน ---- */
+function openSubject(key){
+  $('main').innerHTML='<div class="card">กำลังโหลด...</div>';
+  api('getSubjectData',S.token,key).then(function(d){ S.cur=d; S.dirty={}; S.tab='scores'; renderSubject(); })
+    .catch(function(e){ $('main').innerHTML='<div class="card"><div class="msg err">'+esc(e.message)+'</div></div>'; });
+}
+function renderSubject(){
+  var d=S.cur, s=d.subject;
+  var h='<div class="card"><div class="row"><div style="flex:1"><h2 style="margin:0">'+esc(s.code)+' '+esc(s.name)+' · '+esc(s.classLevel)+'</h2>'
+   +'<div class="mute">ภาคเรียนที่ '+esc(s.term)+' ปีการศึกษา '+esc(s.year)+' · ระหว่างเรียน:ปลายปี = '+esc(s.ratioDuring)+':'+esc(s.ratioFinal)+'</div></div>'
+   +'<button id="bSave" class="pri">บันทึกคะแนน</button><button id="bPrint">พิมพ์ ปพ.5</button><button id="bRel"></button></div>'
+   +'<div id="sMsg"></div>'
+   +'<div class="tabs"><button data-t="scores">กรอกคะแนน</button><button data-t="setup">ตั้งช่องคะแนน</button><button data-t="sum">สรุปเกรด</button></div><div id="tab"></div></div>';
+  $('main').innerHTML=h;
+  [].forEach.call(document.querySelectorAll('.tabs button'),function(b){ b.classList.toggle('on',b.dataset.t===S.tab); b.onclick=function(){S.tab=b.dataset.t;renderSubject();}; });
+  $('bSave').onclick=saveScores;
+  $('bPrint').onclick=printPP5;
+  var rel=function(){ var v=s.released===true||String(s.released).toUpperCase()==='TRUE'; $('bRel').textContent=v?'ผู้ปกครองเห็นผลวิชานี้แล้ว (กดเพื่อปิด)':'เปิดให้ผู้ปกครองดูผล'; $('bRel').className=v?'pri':''; return v; };
+  rel();
+  $('bRel').onclick=function(){
+    var now=rel(); if(!now && !confirm('เปิดให้ผู้ปกครองของนักเรียนทุกคนในชั้นนี้เห็นคะแนนและเกรดวิชานี้?')) return;
+    api('setReleased',S.token,s.key,!now).then(function(v){ s.released=v; rel(); note($('sMsg'),v?'เปิดให้ผู้ปกครองดูผลแล้ว':'ปิดการแสดงผลแล้ว'); }).catch(function(e){ note($('sMsg'),e.message,true); });
+  };
+  if(S.tab==='scores') tabScores(); else if(S.tab==='setup') tabSetup(); else tabSum();
+}
+function tabScores(){
+  var d=S.cur;
+  if(!d.assessments.length){ $('tab').innerHTML='<p class="mute">ยังไม่มีช่องคะแนน — ไปที่แท็บ "ตั้งช่องคะแนน" ก่อน</p>'; return; }
+  var h='<div class="sc"><table><thead><tr><th class="sticky">ที่</th><th class="l sticky" style="left:42px">ชื่อ-สกุล</th>';
+  d.assessments.forEach(function(a){ h+='<th>'+esc(a.name)+'<div class="mute">'+(a.type==='final'?'ปลายปี':'ระหว่างเรียน')+' · เต็ม '+esc(a.max)+'</div></th>'; });
+  h+='<th>ระหว่างเรียน</th><th>ปลายปี</th><th>รวม</th><th>เกรด</th></tr></thead><tbody>';
+  d.students.forEach(function(st){
+    h+='<tr data-s="'+esc(st.studentId)+'"><td class="sticky">'+esc(st.no)+'</td><td class="l sticky" style="left:42px;white-space:nowrap">'+esc(st.name)+'</td>';
+    d.assessments.forEach(function(a){
+      var k=st.studentId+'|'+a.id, v=d.scores[k];
+      h+='<td><input data-k="'+esc(k)+'" data-a="'+esc(a.id)+'" data-max="'+esc(a.max)+'" inputmode="decimal" value="'+(v===undefined?'':esc(v))+'"></td>';
+    });
+    h+='<td class="c-d"></td><td class="c-f"></td><td class="c-t"><b></b></td><td class="c-g"><b></b></td></tr>';
+  });
+  $('tab').innerHTML=h+'</tbody></table></div><p class="mute">กรอกแล้วกด Tab/Enter ไปช่องถัดไป · ช่องสีเหลืองคือยังไม่ได้บันทึก · เว้นว่าง = ยังไม่มีคะแนน</p>';
+  var inputs=[].slice.call(document.querySelectorAll('.sc input'));
+  inputs.forEach(function(inp,i){
+    inp.oninput=function(){
+      var v=inp.value.trim(), mx=Number(inp.dataset.max), bad = v!=='' && (isNaN(Number(v))||Number(v)<0||Number(v)>mx);
+      inp.classList.toggle('bad',bad);
+      if(!bad){ if(v==='') delete S.cur.scores[inp.dataset.k]; else S.cur.scores[inp.dataset.k]=Number(v);
+        S.dirty[inp.dataset.k]=true; inp.classList.add('dirty'); refreshRow(inp.closest('tr')); }
+    };
+    inp.onkeydown=function(e){ if(e.key==='Enter'){ e.preventDefault(); var n=inputs[i+1]; if(n){n.focus();n.select();} } };
+  });
+  [].forEach.call(document.querySelectorAll('.sc tbody tr'),refreshRow);
+}
+function refreshRow(tr){
+  var st=S.cur.students.filter(function(s){return s.studentId===tr.dataset.s;})[0], c=calc(st,S.cur);
+  tr.querySelector('.c-d').textContent=c.pct==null?'':r2(c.during); tr.querySelector('.c-f').textContent=c.pct==null?'':r2(c.fin);
+  tr.querySelector('.c-t b').textContent=c.pct==null?'':r2(c.total); tr.querySelector('.c-g b').textContent=c.grade;
+}
+function saveScores(){
+  var cells=Object.keys(S.dirty).map(function(k){ var p=k.split('|'); var v=S.cur.scores[k]; return {studentId:p[0],assessId:p[1],score:v===undefined?'':v}; });
+  if(!cells.length){ note($('sMsg'),'ไม่มีการเปลี่ยนแปลง'); return; }
+  $('bSave').disabled=true;
+  api('saveScores',S.token,S.cur.subject.key,cells).then(function(n){
+    S.dirty={}; [].forEach.call(document.querySelectorAll('.sc input.dirty'),function(i){i.classList.remove('dirty');});
+    note($('sMsg'),'บันทึกแล้ว '+n+' ช่อง');
+  }).catch(function(e){ note($('sMsg'),e.message,true); }).then(function(){ $('bSave').disabled=false; });
+}
+
+/* ---- ตั้งช่องคะแนน ---- */
+function tabSetup(){
+  var d=S.cur, h='<p class="mute">เพิ่มช่องคะแนนระหว่างเรียน (เช่น ตัวชี้วัด/หน่วย/ชิ้นงาน) และช่องคะแนนปลายปี/ปลายภาค ระบบจะปรับสัดส่วนให้เป็น '+esc(d.subject.ratioDuring)+':'+esc(d.subject.ratioFinal)+' อัตโนมัติ</p>'
+   +'<table id="asT"><thead><tr><th>ชื่อช่อง</th><th>ประเภท</th><th>คะแนนเต็ม</th><th></th></tr></thead><tbody></tbody></table>'
+   +'<p class="row"><button id="aAddD">+ ระหว่างเรียน</button><button id="aAddF">+ ปลายปี</button><button class="pri" id="aSave">บันทึกช่องคะแนน</button></p>'
+   +'<div class="msg">คำเตือน: การลบช่องจะลบคะแนนของช่องนั้นด้วย</div>';
+  $('tab').innerHTML=h;
+  function addRow(a){
+    var tr=document.createElement('tr'); tr.dataset.id=a.id||'';
+    tr.innerHTML='<td><input class="n" value="'+esc(a.name)+'"></td><td><select class="t"><option value="during"'+(a.type!=='final'?' selected':'')+'>ระหว่างเรียน</option><option value="final"'+(a.type==='final'?' selected':'')+'>ปลายปี</option></select></td><td><input class="m" style="width:80px" value="'+esc(a.max)+'"></td><td><button class="dan">ลบ</button></td>';
+    tr.querySelector('button').onclick=function(){tr.remove();};
+    $('asT').tBodies[0].appendChild(tr);
+  }
+  d.assessments.forEach(addRow);
+  $('aAddD').onclick=function(){ addRow({name:'ตัวชี้วัด '+($('asT').tBodies[0].rows.length+1),type:'during',max:10}); };
+  $('aAddF').onclick=function(){ addRow({name:'สอบปลายปี',type:'final',max:100}); };
+  $('aSave').onclick=function(){
+    var list=[].map.call($('asT').tBodies[0].rows,function(tr){ return {id:tr.dataset.id,name:tr.querySelector('.n').value,type:tr.querySelector('.t').value,max:tr.querySelector('.m').value}; });
+    api('saveAssessments',S.token,d.subject.key,list).then(function(clean){
+      d.assessments=clean; var ids={}; clean.forEach(function(a){ids[a.id]=1;});
+      Object.keys(d.scores).forEach(function(k){ if(!ids[k.split('|')[1]]) delete d.scores[k]; });
+      note($('sMsg'),'บันทึกช่องคะแนนแล้ว'); S.tab='scores'; renderSubject();
+    }).catch(function(e){ note($('sMsg'),e.message,true); });
+  };
+}
+
+/* ---- สรุปเกรด ---- */
+function summary(){
+  var d=S.cur, dist={4:0,3.5:0,3:0,2.5:0,2:0,1.5:0,1:0,0:0}, n=0, sum=0, rows=[];
+  d.students.forEach(function(st){ var c=calc(st,d); rows.push({st:st,c:c}); if(c.grade!==''){dist[c.grade]++;n++;sum+=c.pct;} });
+  return {rows:rows,dist:dist,n:n,avg:n?sum/n:0};
+}
+function tabSum(){
+  var m=summary(), h='<p>กรอกคะแนนแล้ว <b>'+m.n+'</b> จาก '+m.rows.length+' คน · ค่าเฉลี่ยร้อยละ <b>'+r2(m.avg)+'</b></p><table style="max-width:560px"><thead><tr><th>เกรด</th>';
+  [4,3.5,3,2.5,2,1.5,1,0].forEach(function(g){h+='<th>'+g+'</th>';}); h+='</tr></thead><tbody><tr><td>จำนวน (คน)</td>';
+  [4,3.5,3,2.5,2,1.5,1,0].forEach(function(g){h+='<td>'+m.dist[g]+'</td>';}); h+='</tr></tbody></table>';
+  $('tab').innerHTML=h;
+}
+
+/* ---- พิมพ์ ปพ.5 ---- */
+function printPP5(){
+  if(Object.keys(S.dirty).length && !confirm('มีคะแนนที่ยังไม่ได้บันทึก พิมพ์ต่อหรือไม่?')) return;
+  var d=S.cur, s=d.subject, h='<div style="text-align:center"><b>แบบรายงานผลการพัฒนาคุณภาพผู้เรียนรายวิชา (ปพ.5)</b><br>'+esc(d.school)+'<br>รายวิชา '+esc(s.code)+' '+esc(s.name)+' ชั้น'+esc(s.classLevel)+' ภาคเรียนที่ '+esc(s.term)+' ปีการศึกษา '+esc(s.year)+'<br>อัตราส่วนคะแนนระหว่างเรียน : ปลายปี = '+esc(s.ratioDuring)+' : '+esc(s.ratioFinal)+'</div><br>'
+   +'<table><thead><tr><th>ที่</th><th>ชื่อ-สกุล</th>';
+  d.assessments.forEach(function(a){h+='<th>'+esc(a.name)+'<br>('+esc(a.max)+')</th>';});
+  h+='<th>ระหว่างเรียน<br>('+esc(s.ratioDuring)+')</th><th>ปลายปี<br>('+esc(s.ratioFinal)+')</th><th>รวม<br>(100)</th><th>เกรด</th></tr></thead><tbody>';
+  d.students.forEach(function(st){
+    var c=calc(st,d); h+='<tr><td>'+esc(st.no)+'</td><td style="text-align:left;white-space:nowrap">'+esc(st.name)+'</td>';
+    d.assessments.forEach(function(a){var v=d.scores[st.studentId+'|'+a.id]; h+='<td>'+(v===undefined?'':esc(v))+'</td>';});
+    h+='<td>'+(c.grade===''?'':r2(c.during))+'</td><td>'+(c.grade===''?'':r2(c.fin))+'</td><td>'+(c.grade===''?'':r2(c.total))+'</td><td>'+c.grade+'</td></tr>';
+  });
+  h+='</tbody></table><br><div style="display:flex;justify-content:space-around"><div>ลงชื่อ.....................................ครูประจำวิชา</div><div>ลงชื่อ.....................................หัวหน้าฝ่ายวิชาการ</div><div>ลงชื่อ.....................................ผู้อำนวยการ</div></div>';
+  $('print').innerHTML=h; window.print();
+}
+
+/* ---- ผู้ดูแลระบบ ---- */
+function admin(){
+  $('main').innerHTML='<div class="card">กำลังโหลด...</div>';
+  api('adminGetAll',S.token).then(function(a){ S.adm=a; S.atab=S.atab||'subjects'; renderAdmin(); })
+   .catch(function(e){ $('main').innerHTML='<div class="card"><div class="msg err">'+esc(e.message)+'</div></div>'; });
+}
+function renderAdmin(){
+  $('main').innerHTML='<div class="card"><h2>ผู้ดูแลระบบ</h2><div class="tabs">'
+   +[['subjects','รายวิชา'],['students','นักเรียน'],['users','ครู/ผู้ใช้'],['pins','PIN ผู้ปกครอง'],['cfg','ตั้งค่าโรงเรียน']].map(function(t){return '<button data-t="'+t[0]+'"'+(S.atab===t[0]?' class="on"':'')+'>'+t[1]+'</button>';}).join('')
+   +'</div><div id="aMsg"></div><div id="atab"></div></div>';
+  [].forEach.call(document.querySelectorAll('.tabs button'),function(b){b.onclick=function(){S.atab=b.dataset.t;renderAdmin();};});
+  ({subjects:aSubjects,students:aStudents,users:aUsers,pins:aPins,cfg:aCfg})[S.atab]();
+}
+function aDone(msg){ return admin_refresh(msg); }
+function admin_refresh(msg){ return api('adminGetAll',S.token).then(function(a){S.adm=a; return api('bootstrap',S.token);}).then(function(b){S.boot=b; renderAdmin(); note($('aMsg'),msg);}); }
+function aErr(e){ note($('aMsg'),e.message,true); }
+
+function aSubjects(){
+  var a=S.adm, teachers=a.users.filter(function(u){return u.active!==false;});
+  var h='<h3>เพิ่ม/แก้ไขรายวิชา</h3><div class="grid2">'
+   +'<div><label>ชั้น</label><select id="sC">'+S.boot.classes.map(function(c){return '<option>'+c+'</option>';}).join('')+'</select></div>'
+   +'<div><label>รหัสวิชา</label><input id="sCode" placeholder="ค15101"></div>'
+   +'<div><label>ชื่อรายวิชา</label><input id="sName" placeholder="คณิตศาสตร์ 5"></div>'
+   +'<div><label>กลุ่มสาระ</label><input id="sGrp"></div>'
+   +'<div><label>เวลาเรียน (ชม./ปี)</label><input id="sHr" type="number"></div>'
+   +'<div><label>ครูผู้สอน</label><select id="sT">'+teachers.map(function(u){return '<option value="'+esc(u.email)+'">'+esc(u.name)+' ('+esc(u.email)+')</option>';}).join('')+'</select></div>'
+   +'<div><label>ภาคเรียน</label><input id="sTerm" type="number" value="'+esc(a.config.term)+'"></div>'
+   +'<div><label>ปีการศึกษา</label><input id="sYear" type="number" value="'+esc(a.config.year)+'"></div>'
+   +'<div><label>สัดส่วนระหว่างเรียน</label><input id="sRd" type="number" value="70"></div>'
+   +'<div><label>สัดส่วนปลายปี</label><input id="sRf" type="number" value="30"></div></div>'
+   +'<p><button class="pri" id="sAdd">บันทึกรายวิชา</button></p><h3>รายวิชาทั้งหมด</h3><div class="sc"><table><thead><tr><th>ชั้น</th><th>รหัส</th><th class="l">ชื่อ</th><th>ภาค/ปี</th><th class="l">ครู</th><th>สัดส่วน</th><th></th></tr></thead><tbody>';
+  a.subjects.sort(function(x,y){return (x.classLevel+x.code)<(y.classLevel+y.code)?-1:1;}).forEach(function(s){
+    h+='<tr><td>'+esc(s.classLevel)+'</td><td>'+esc(s.code)+'</td><td class="l">'+esc(s.name)+'</td><td>'+esc(s.term)+'/'+esc(s.year)+'</td><td class="l">'+esc(s.teacherEmail)+'</td><td>'+esc(s.ratioDuring)+':'+esc(s.ratioFinal)+'</td><td><button class="dan" data-del="'+esc(s.key)+'">ลบ</button></td></tr>';
+  });
+  $('atab').innerHTML=h+'</tbody></table></div>';
+  $('sAdd').onclick=function(){
+    api('adminSaveSubject',S.token,{classLevel:$('sC').value,code:$('sCode').value,name:$('sName').value,group:$('sGrp').value,hours:$('sHr').value,teacherEmail:$('sT').value,term:$('sTerm').value,year:$('sYear').value,ratioDuring:$('sRd').value,ratioFinal:$('sRf').value})
+      .then(function(){return aDone('บันทึกรายวิชาแล้ว');}).catch(aErr);
+  };
+  [].forEach.call(document.querySelectorAll('[data-del]'),function(b){ b.onclick=function(){
+    if(confirm('ลบรายวิชานี้พร้อมคะแนนทั้งหมด?')) api('adminDeleteSubject',S.token,b.dataset.del).then(function(){return aDone('ลบแล้ว');}).catch(aErr); }; });
+}
+function aStudents(){
+  var a=S.adm, cnt={}; a.students.forEach(function(s){cnt[s.classLevel]=(cnt[s.classLevel]||0)+1;});
+  $('atab').innerHTML='<p class="mute">จำนวนนักเรียนตอนนี้: '+(S.boot.classes.map(function(c){return c+' = '+(cnt[c]||0);}).join(' · '))+'</p>'
+   +'<label>วางข้อมูล 1 บรรทัดต่อ 1 คน รูปแบบ: ชั้น, เลขที่, ชื่อ-สกุล (คั่นด้วยคอมมาหรือแท็บ — คัดลอกจาก Excel ได้)</label>'
+   +'<textarea id="stIn" rows="9" style="width:100%;font:inherit;border:1px solid var(--line);border-radius:8px;padding:8px" placeholder="ป.5, 1, เด็กชายสมชาย ใจดี&#10;ป.5, 2, เด็กหญิงสมหญิง รักเรียน"></textarea>'
+   +'<p class="mute">ถ้าชั้น+เลขที่ซ้ำกับที่มีอยู่ จะอัปเดตชื่อ (คะแนนเดิมยังอยู่)</p><button class="pri" id="stGo">นำเข้า</button>';
+  $('stGo').onclick=function(){
+    var rows=$('stIn').value.split(/\n/).map(function(l){return l.trim();}).filter(Boolean).map(function(l){
+      var p=l.split(/\t|,/); return {classLevel:(p[0]||'').trim(),no:(p[1]||'').trim(),name:p.slice(2).join(',').trim()};
+    });
+    if(!rows.length) return aErr(new Error('ยังไม่ได้วางข้อมูล'));
+    api('adminImportStudents',S.token,rows).then(function(r){return aDone('เพิ่ม '+r.added+' คน · อัปเดต '+r.updated+' คน');}).catch(aErr);
+  };
+}
+function aUsers(){
+  var h='<div class="grid2"><div><label>อีเมล (ใช้เป็นชื่อผู้ใช้)</label><input id="uE" type="email"></div><div><label>ชื่อ-สกุล</label><input id="uN"></div>'
+   +'<div><label>บทบาท</label><select id="uR"><option value="teacher">ครู</option><option value="admin">ผู้ดูแลระบบ</option></select></div>'
+   +'<div><label>PIN (เว้นว่างถ้าไม่เปลี่ยน)</label><input id="uP" inputmode="numeric"></div></div><p><button class="pri" id="uGo">บันทึกผู้ใช้</button></p>'
+   +'<table><thead><tr><th class="l">ชื่อ</th><th class="l">อีเมล</th><th>บทบาท</th><th>สถานะ</th></tr></thead><tbody>';
+  S.adm.users.forEach(function(u){ h+='<tr><td class="l">'+esc(u.name)+'</td><td class="l">'+esc(u.email)+'</td><td>'+esc(u.role==='admin'?'ผู้ดูแล':'ครู')+'</td><td>'+(u.active===false||u.active==='FALSE'?'ปิด':'ใช้งาน')+'</td></tr>'; });
+  $('atab').innerHTML=h+'</tbody></table>';
+  $('uGo').onclick=function(){ api('adminSaveUser',S.token,{email:$('uE').value,name:$('uN').value,role:$('uR').value,pin:$('uP').value}).then(function(){return aDone('บันทึกผู้ใช้แล้ว');}).catch(aErr); };
+}
+function aPins(){
+  $('atab').innerHTML='<p class="mute">สร้าง PIN 6 หลักให้นักเรียนทั้งชั้น แล้วพิมพ์ใบแจกรายบ้าน ระบบเก็บเฉพาะค่าเข้ารหัส จึงดู PIN เดิมย้อนหลังไม่ได้ (ถ้าสร้างใหม่ PIN เดิมของชั้นนั้นจะใช้ไม่ได้)</p><div class="row"><div><label>ชั้น</label><select id="pC">'+S.boot.classes.map(function(c){return '<option>'+c+'</option>';}).join('')+'</select></div><button class="pri" id="pGo">สร้าง PIN และพิมพ์ใบแจก</button></div>';
+  $('pGo').onclick=function(){
+    if(!confirm('สร้าง PIN ใหม่ให้ทั้งชั้น? PIN เดิมของชั้นนี้จะใช้ไม่ได้')) return;
+    api('adminGeneratePins',S.token,$('pC').value).then(function(list){
+      var h='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8mm">';
+      list.forEach(function(r){ h+='<div style="border:1px dashed #000;padding:6mm;break-inside:avoid"><b>'+esc(S.boot.school)+'</b><br>ผลการเรียนออนไลน์ · ผู้ปกครองของ<br><b>'+esc(r.name)+'</b><br>รหัสนักเรียน: <b>'+esc(r.loginId)+'</b><br>PIN: <b style="font-size:18pt;letter-spacing:2px">'+esc(r.pin)+'</b><br><span style="font-size:11pt">ห้ามแจ้งรหัสนี้แก่ผู้อื่น</span></div>'; });
+      $('print').innerHTML=h+'</div>'; note($('aMsg'),'สร้าง PIN แล้ว '+list.length+' คน — หน้าต่างพิมพ์กำลังเปิด ถ้าปิดแล้วจะดู PIN เดิมไม่ได้');
+      setTimeout(function(){ window.print(); },300);
+    }).catch(aErr);
+  };
+}
+function aCfg(){
+  var c=S.adm.config;
+  $('atab').innerHTML='<div class="grid2"><div><label>ชื่อโรงเรียน</label><input id="cS" value="'+esc(c.schoolName)+'"></div><div><label>ปีการศึกษา</label><input id="cY" value="'+esc(c.year)+'"></div><div><label>ภาคเรียน</label><input id="cT" value="'+esc(c.term)+'"></div></div><p><button class="pri" id="cGo">บันทึก</button></p>';
+  $('cGo').onclick=function(){ api('adminSaveConfig',S.token,{schoolName:$('cS').value,year:$('cY').value,term:$('cT').value}).then(function(){return aDone('บันทึกแล้ว');}).catch(aErr); };
+}
+
+/* ---- เริ่มทำงาน ---- */
+(function(){
+  var t=null; try{t=sessionStorage.getItem('pp5t');}catch(e){}
+  if(t){ S.token=t; start().catch(function(){ showLogin(); }); } else showLogin();
+})();
+</script>
+</body>
+</html>
