@@ -337,35 +337,80 @@ function aDone(msg){ return admin_refresh(msg); }
 function admin_refresh(msg){ return api('adminGetAll',S.token).then(function(a){S.adm=a; return api('bootstrap',S.token);}).then(function(b){S.boot=b; renderAdmin(); note($('aMsg'),msg);}); }
 function aErr(e){ note($('aMsg'),e.message,true); }
 
+var STD_SUBJECTS=[
+  {p:'ท',n:'ภาษาไทย',g:'ภาษาไทย',s:'101',h:200},
+  {p:'ค',n:'คณิตศาสตร์',g:'คณิตศาสตร์',s:'101',h:200},
+  {p:'ว',n:'วิทยาศาสตร์และเทคโนโลยี',g:'วิทยาศาสตร์และเทคโนโลยี',s:'101',h:''},
+  {p:'ส',n:'สังคมศึกษา ศาสนาและวัฒนธรรม',g:'สังคมศึกษา ศาสนาและวัฒนธรรม',s:'101',h:''},
+  {p:'ส',n:'ประวัติศาสตร์',g:'สังคมศึกษา ศาสนาและวัฒนธรรม',s:'102',h:''},
+  {p:'พ',n:'สุขศึกษาและพลศึกษา',g:'สุขศึกษาและพลศึกษา',s:'101',h:''},
+  {p:'ศ',n:'ศิลปะ',g:'ศิลปะ',s:'101',h:''},
+  {p:'ง',n:'การงานอาชีพ',g:'การงานอาชีพ',s:'101',h:''},
+  {p:'อ',n:'ภาษาอังกฤษ',g:'ภาษาต่างประเทศ',s:'101',h:''},
+  {p:'ส',n:'อิสลามศึกษา',g:'สังคมศึกษา ศาสนาและวัฒนธรรม',s:'201',h:''},
+  {p:'ส',n:'ต้านทุจริต',g:'สังคมศึกษา ศาสนาและวัฒนธรรม',s:'202',h:''}
+];
 function aSubjects(){
   var a=S.adm, teachers=a.users.filter(function(u){return u.active!==false;});
+  var tOpts=teachers.map(function(u){return '<option value="'+esc(u.email)+'">'+esc(u.name)+' ('+esc(u.email)+')</option>';}).join('');
   var h='<h3>เพิ่ม/แก้ไขรายวิชา</h3><div class="grid2">'
    +'<div><label>ชั้น</label><select id="sC">'+S.boot.classes.map(function(c){return '<option>'+c+'</option>';}).join('')+'</select></div>'
-   +'<div><label>รหัสวิชา</label><input id="sCode" placeholder="ค15101"></div>'
-   +'<div><label>ชื่อรายวิชา</label><input id="sName" placeholder="คณิตศาสตร์ 5"></div>'
+   +'<div><label>รายวิชา (เลือกจากรายการ)</label><select id="sPick">'+STD_SUBJECTS.map(function(x,i){return '<option value="'+i+'">'+esc(x.n)+'</option>';}).join('')+'<option value="x">อื่นๆ (พิมพ์เอง)</option></select></div>'
+   +'<div><label>รหัสวิชา</label><input id="sCode"></div>'
+   +'<div><label>ชื่อรายวิชา</label><input id="sName"></div>'
    +'<div><label>กลุ่มสาระ</label><input id="sGrp"></div>'
    +'<div><label>เวลาเรียน (ชม./ปี)</label><input id="sHr" type="number"></div>'
-   +'<div><label>ครูผู้สอน</label><select id="sT">'+teachers.map(function(u){return '<option value="'+esc(u.email)+'">'+esc(u.name)+' ('+esc(u.email)+')</option>';}).join('')+'</select></div>'
+   +'<div><label>ครูผู้สอน</label><select id="sT"><option value="">— ยังไม่มอบหมาย —</option>'+tOpts+'</select></div>'
    +'<div><label>ภาคเรียน</label><input id="sTerm" type="number" value="'+esc(a.config.term)+'"></div>'
    +'<div><label>ปีการศึกษา</label><input id="sYear" type="number" value="'+esc(a.config.year)+'"></div>'
    +'<div><label>สัดส่วนระหว่างเรียน</label><input id="sRd" type="number" value="70"></div>'
    +'<div><label>สัดส่วนปลายปี</label><input id="sRf" type="number" value="30"></div></div>'
-   +'<p><button class="pri" id="sAdd">บันทึกรายวิชา</button></p><h3>รายวิชาทั้งหมด</h3><div class="sc"><table><thead><tr><th>ชั้น</th><th>รหัส</th><th class="l">ชื่อ</th><th>ภาค/ปี</th><th class="l">ครู</th><th>สัดส่วน</th><th></th></tr></thead><tbody>';
-  a.subjects.sort(function(x,y){return (x.classLevel+x.code)<(y.classLevel+y.code)?-1:1;}).forEach(function(s){
-    h+='<tr><td>'+esc(s.classLevel)+'</td><td>'+esc(s.code)+'</td><td class="l">'+esc(s.name)+'</td><td>'+esc(s.term)+'/'+esc(s.year)+'</td><td class="l">'+esc(s.teacherEmail)+'</td><td>'+esc(s.ratioDuring)+':'+esc(s.ratioFinal)+'</td><td><button data-edit="'+esc(s.key)+'">แก้ไข</button> <button class="dan" data-del="'+esc(s.key)+'">ลบ</button></td></tr>';
-  });
-  $('atab').innerHTML=h+'</tbody></table></div>';
+   +'<p><button class="pri" id="sAdd">บันทึกรายวิชา</button></p>'
+   +'<h3>รายวิชาทั้งหมด <span class="mute" style="font-weight:400">(เลือกครูในตารางได้เลย บันทึกอัตโนมัติ)</span></h3>'
+   +'<div class="row"><div><label>กรองตามชั้น</label><select id="fC"><option value="">ทุกชั้น</option>'+S.boot.classes.map(function(c){return '<option>'+c+'</option>';}).join('')+'</select></div></div>'
+   +'<div class="sc"><table><thead><tr><th>ชั้น</th><th>รหัส</th><th class="l">ชื่อ</th><th>ภาค/ปี</th><th class="l">ครูผู้สอน</th><th>สัดส่วน</th><th></th></tr></thead><tbody id="sBody"></tbody></table></div>';
+  $('atab').innerHTML=h;
+  // เติมรหัส/ชื่อ/กลุ่มสาระ/ชั่วโมง อัตโนมัติเมื่อเลือกวิชา
+  function fill(){
+    var pick=$('sPick').value, manual=(pick==='x');
+    ['sCode','sName','sGrp','sHr'].forEach(function(id){ $(id).readOnly=!manual; $(id).style.background=manual?'#fff':'#f3f4f8'; });
+    if(manual) return;
+    var x=STD_SUBJECTS[Number(pick)], lv=$('sC').value.replace('ป.','');
+    $('sCode').value=x.p+'1'+lv+x.s; $('sName').value=x.n+' '+lv; $('sGrp').value=x.g; $('sHr').value=x.h;
+  }
+  $('sC').onchange=fill; $('sPick').onchange=fill; fill();
+  function rowData(s,email){ return {classLevel:s.classLevel,code:s.code,name:s.name,group:s.group,hours:s.hours,teacherEmail:email,term:s.term,year:s.year,ratioDuring:s.ratioDuring,ratioFinal:s.ratioFinal}; }
+  function draw(){
+    var f=$('fC').value, rows=a.subjects.filter(function(s){return !f||s.classLevel===f;})
+      .sort(function(x,y){return (x.classLevel+x.code)<(y.classLevel+y.code)?-1:1;}), b='';
+    rows.forEach(function(s){
+      b+='<tr><td>'+esc(s.classLevel)+'</td><td>'+esc(s.code)+'</td><td class="l">'+esc(s.name)+'</td><td>'+esc(s.term)+'/'+esc(s.year)+'</td>'
+       +'<td class="l"><select data-t="'+esc(s.key)+'"><option value="">— ยังไม่มอบหมาย —</option>'+tOpts+'</select></td>'
+       +'<td>'+esc(s.ratioDuring)+':'+esc(s.ratioFinal)+'</td>'
+       +'<td><button data-edit="'+esc(s.key)+'">แก้ไข</button> <button class="dan" data-del="'+esc(s.key)+'">ลบ</button></td></tr>';
+    });
+    $('sBody').innerHTML=b||'<tr><td colspan="7" class="mute">ยังไม่มีรายวิชา</td></tr>';
+    [].forEach.call(document.querySelectorAll('select[data-t]'),function(sel){
+      var s=a.subjects.filter(function(x){return x.key===sel.dataset.t;})[0]; sel.value=s.teacherEmail||'';
+      sel.onchange=function(){
+        api('adminSaveSubject',S.token,rowData(s,sel.value)).then(function(){ s.teacherEmail=sel.value; note($('aMsg'),'มอบหมายครูให้ '+s.code+' '+s.name+' แล้ว'); })
+          .catch(function(e){ sel.value=s.teacherEmail||''; aErr(e); });
+      };
+    });
+    [].forEach.call(document.querySelectorAll('[data-edit]'),function(bt){ bt.onclick=function(){
+      var s=a.subjects.filter(function(x){return x.key===bt.dataset.edit;})[0]; if(!s) return;
+      $('sPick').value='x'; fill();
+      $('sC').value=s.classLevel; $('sCode').value=s.code; $('sName').value=s.name; $('sGrp').value=s.group||''; $('sHr').value=s.hours||'';
+      $('sT').value=s.teacherEmail||''; $('sTerm').value=s.term; $('sYear').value=s.year; $('sRd').value=s.ratioDuring; $('sRf').value=s.ratioFinal;
+      window.scrollTo(0,0); note($('aMsg'),'โหลดข้อมูลลงฟอร์มแล้ว — แก้ไขแล้วกด "บันทึกรายวิชา"'); }; });
+    [].forEach.call(document.querySelectorAll('[data-del]'),function(bt){ bt.onclick=function(){
+      if(confirm('ลบรายวิชานี้พร้อมคะแนนทั้งหมด?')) api('adminDeleteSubject',S.token,bt.dataset.del).then(function(){return aDone('ลบแล้ว');}).catch(aErr); }; });
+  }
+  $('fC').onchange=draw; draw();
   $('sAdd').onclick=function(){
     api('adminSaveSubject',S.token,{classLevel:$('sC').value,code:$('sCode').value,name:$('sName').value,group:$('sGrp').value,hours:$('sHr').value,teacherEmail:$('sT').value,term:$('sTerm').value,year:$('sYear').value,ratioDuring:$('sRd').value,ratioFinal:$('sRf').value})
       .then(function(){return aDone('บันทึกรายวิชาแล้ว');}).catch(aErr);
   };
-  [].forEach.call(document.querySelectorAll('[data-edit]'),function(b){ b.onclick=function(){
-    var s=a.subjects.filter(function(x){return x.key===b.dataset.edit;})[0]; if(!s) return;
-    $('sC').value=s.classLevel; $('sCode').value=s.code; $('sName').value=s.name; $('sGrp').value=s.group||''; $('sHr').value=s.hours||'';
-    $('sT').value=s.teacherEmail||''; $('sTerm').value=s.term; $('sYear').value=s.year; $('sRd').value=s.ratioDuring; $('sRf').value=s.ratioFinal;
-    window.scrollTo(0,0); note($('aMsg'),'โหลดข้อมูลลงฟอร์มแล้ว — เลือกครูผู้สอนแล้วกด "บันทึกรายวิชา"'); }; });
-  [].forEach.call(document.querySelectorAll('[data-del]'),function(b){ b.onclick=function(){
-    if(confirm('ลบรายวิชานี้พร้อมคะแนนทั้งหมด?')) api('adminDeleteSubject',S.token,b.dataset.del).then(function(){return aDone('ลบแล้ว');}).catch(aErr); }; });
 }
 function aStudents(){
   var a=S.adm, cnt={}; a.students.forEach(function(s){cnt[s.classLevel]=(cnt[s.classLevel]||0)+1;});
