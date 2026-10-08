@@ -87,7 +87,7 @@ var S = { token: null, boot: null, cur: null, dirty: {} };
 var $ = function (id) { return document.getElementById(id); };
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 // ====== ตั้งค่าตรงนี้ที่เดียว: วาง URL เว็บแอปของ Apps Script (ลงท้ายด้วย /exec) ======
-var API_URL = 'วาง_URL_ของ_APPS_SCRIPT_ที่นี่';
+var API_URL = 'https://script.google.com/macros/s/AKfycbw-MaTOIVijbqB7sua4eKszFMFdMFv0m-OSBD74uWezr3KXax6pYhzyNaKM-iciYetX/exec';
 // =====================================================================
 function api(fn){
   var args=[].slice.call(arguments,1);
