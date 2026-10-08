@@ -48,6 +48,7 @@ td.l,th.l{text-align:left}
   @page{size:A4 landscape;margin:12mm}
 }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -412,12 +413,56 @@ function aSubjects(){
       .then(function(){return aDone('บันทึกรายวิชาแล้ว');}).catch(aErr);
   };
 }
+/* ---- นำเข้านักเรียนจากไฟล์ (Excel/CSV) ---- */
+function colLetter(i){ var s=''; i++; while(i>0){ var m=(i-1)%26; s=String.fromCharCode(65+m)+s; i=Math.floor((i-1)/26); } return s; }
+function detectMap(aoa){
+  var hdr=-1, i, j;
+  for(i=0;i<Math.min(aoa.length,15)&&hdr<0;i++){ for(j=0;j<aoa[i].length;j++){ if(/^(ชื่อ|ชื่อ(และ|-)?(นามสกุล|สกุล)|ชื่อนักเรียน|ชื่อตัว|ชื่อ-ชื่อสกุล)$/.test(String(aoa[i][j]).replace(/\s+/g,''))){ hdr=i; break; } } }
+  var heads=[], ncol=0; aoa.forEach(function(r){ ncol=Math.max(ncol,r.length); });
+  for(j=0;j<ncol;j++) heads.push(hdr>=0 && String(aoa[hdr][j]||'').trim() ? String(aoa[hdr][j]).trim() : 'คอลัมน์ '+colLetter(j));
+  var m={no:-1,title:-1,first:-1,last:-1,full:-1};
+  heads.forEach(function(h,k){
+    var t=h.replace(/\s+/g,'');
+    if(m.no<0 && /^(เลขที่|ที่|ลำดับ|no\.?)$/i.test(t)) m.no=k;
+    else if(m.title<0 && /คำนำหน้า/.test(t)) m.title=k;
+    else if(m.full<0 && /ชื่อ[-–]?(และ)?สกุล|ชื่อ-นามสกุล|ชื่อนามสกุล/.test(t)) m.full=k;
+    else if(m.last<0 && /สกุล/.test(t)) m.last=k;
+    else if(m.first<0 && /^ชื่อ(ตัว|นักเรียน)?$/.test(t)) m.first=k;
+  });
+  if(m.full<0 && m.first<0){   // ไม่มีหัวคอลัมน์ชัด: เลือกคอลัมน์แรกที่เป็นข้อความไทยยาว
+    for(j=0;j<ncol;j++){ var ok=0,n=0; for(i=hdr+1;i<aoa.length;i++){ var v=String(aoa[i][j]||'').trim(); if(v){ n++; if(/[ก-๙]/.test(v)&&v.length>=5) ok++; } } if(n&&ok/n>0.6){ m.full=j; break; } }
+  }
+  return {hdr:hdr, heads:heads, map:m};
+}
+function extractRows(aoa, hdr, m, classLevel){
+  var out=[], seq=0;
+  for(var i=hdr+1;i<aoa.length;i++){
+    var r=aoa[i], g=function(k){ return k>=0 ? String(r[k]==null?'':r[k]).trim() : ''; };
+    var name = m.full>=0 ? g(m.full) : (g(m.title)+g(m.first)+' '+g(m.last));
+    name=name.replace(/\s+/g,' ').trim();
+    if(!name) continue;
+    seq++; var no=Number(g(m.no)); if(!(no>0)) no=seq;
+    out.push({classLevel:classLevel, no:no, name:name});
+  }
+  return out;
+}
+function readTextFile(file){
+  return file.arrayBuffer().then(function(buf){
+    try{ return new TextDecoder('utf-8',{fatal:true}).decode(buf); }
+    catch(e){ return new TextDecoder('windows-874').decode(buf); }   // CSV จาก Excel ภาษาไทยรุ่นเก่า
+  });
+}
 function aStudents(){
   var a=S.adm, cnt={}; a.students.forEach(function(s){cnt[s.classLevel]=(cnt[s.classLevel]||0)+1;});
+  var clsOpts=S.boot.classes.map(function(c){return '<option>'+c+'</option>';}).join('');
   $('atab').innerHTML='<p class="mute">จำนวนนักเรียนตอนนี้: '+(S.boot.classes.map(function(c){return c+' = '+(cnt[c]||0);}).join(' · '))+'</p>'
-   +'<label>วางข้อมูล 1 บรรทัดต่อ 1 คน รูปแบบ: ชั้น, เลขที่, ชื่อ-สกุล (คั่นด้วยคอมมาหรือแท็บ — คัดลอกจาก Excel ได้)</label>'
-   +'<textarea id="stIn" rows="9" style="width:100%;font:inherit;border:1px solid var(--line);border-radius:8px;padding:8px" placeholder="ป.5, 1, เด็กชายสมชาย ใจดี&#10;ป.5, 2, เด็กหญิงสมหญิง รักเรียน"></textarea>'
-   +'<p class="mute">ถ้าชั้น+เลขที่ซ้ำกับที่มีอยู่ จะอัปเดตชื่อ (คะแนนเดิมยังอยู่)</p><button class="pri" id="stGo">นำเข้า</button>';
+   +'<div class="card" style="margin:0 0 12px"><b>นำเข้าจากไฟล์ในเครื่อง (Excel / CSV)</b>'
+   +'<div class="row"><div><label>นำเข้าเข้าชั้น</label><select id="iC">'+clsOpts+'</select></div>'
+   +'<div><label>เลือกไฟล์ (.xlsx .xls .csv)</label><input type="file" id="iF" accept=".xlsx,.xls,.csv,.txt"></div>'
+   +'<button id="iTpl">ดาวน์โหลดไฟล์ตัวอย่าง (CSV)</button></div><div id="iBox"></div></div>'
+   +'<details><summary class="mute" style="cursor:pointer">หรือวางข้อมูลเอง (1 บรรทัดต่อ 1 คน: ชั้น, เลขที่, ชื่อ-สกุล)</summary>'
+   +'<textarea id="stIn" rows="7" style="width:100%;font:inherit;border:1px solid var(--line);border-radius:8px;padding:8px;margin-top:8px" placeholder="ป.5, 1, เด็กชายสมชาย ใจดี&#10;ป.5, 2, เด็กหญิงสมหญิง รักเรียน"></textarea>'
+   +'<p class="mute">ถ้าชั้น+เลขที่ซ้ำกับที่มีอยู่ จะอัปเดตชื่อ (คะแนนเดิมยังอยู่)</p><button class="pri" id="stGo">นำเข้า</button></details>';
   $('stGo').onclick=function(){
     var rows=$('stIn').value.split(/\n/).map(function(l){return l.trim();}).filter(Boolean).map(function(l){
       var p=l.split(/\t|,/); return {classLevel:(p[0]||'').trim(),no:(p[1]||'').trim(),name:p.slice(2).join(',').trim()};
@@ -425,7 +470,69 @@ function aStudents(){
     if(!rows.length) return aErr(new Error('ยังไม่ได้วางข้อมูล'));
     api('adminImportStudents',S.token,rows).then(function(r){return aDone('เพิ่ม '+r.added+' คน · อัปเดต '+r.updated+' คน');}).catch(aErr);
   };
+  $('iTpl').onclick=function(){
+    var csv='\uFEFFเลขที่,ชื่อ-สกุล\r\n1,เด็กชายสมชาย ใจดี\r\n2,เด็กหญิงสมหญิง รักเรียน\r\n';
+    var b=new Blob([csv],{type:'text/csv;charset=utf-8'}), u=URL.createObjectURL(b), l=document.createElement('a');
+    l.href=u; l.download='ตัวอย่างรายชื่อนักเรียน.csv'; document.body.appendChild(l); l.click(); l.remove(); setTimeout(function(){URL.revokeObjectURL(u);},1000);
+  };
+  var wb=null;
+  $('iF').onchange=function(){
+    var f=this.files[0]; if(!f) return;
+    if(typeof XLSX==='undefined'){ $('iBox').innerHTML=''; return aErr(new Error('โหลดตัวอ่านไฟล์ Excel ไม่สำเร็จ (ต้องต่ออินเทอร์เน็ต)')); }
+    var isText=/\.(csv|txt)$/i.test(f.name);
+    (isText ? readTextFile(f).then(function(t){ return XLSX.read(t,{type:'string'}); })
+            : f.arrayBuffer().then(function(b){ return XLSX.read(b,{type:'array'}); }))
+      .then(function(w){ wb=w; showPreview(); })
+      .catch(function(e){ aErr(new Error('อ่านไฟล์ไม่ได้: '+e.message)); });
+  };
+  function aoaOf(name){ return XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:''}); }
+  function classOfSheet(n){ var m=String(n).replace(/\s+/g,'').match(/ป\.?([1-6])/); return m?'ป.'+m[1]:null; }
+  function showPreview(){
+    var names=wb.SheetNames, clsSheets=names.filter(function(n){return classOfSheet(n);}), h='';
+    var multi = clsSheets.length>=2;
+    if(multi) h+='<p><label style="display:inline"><input type="checkbox" id="iAuto" checked> ตรวจพบชีตแยกชั้น ('+clsSheets.map(esc).join(', ')+') — นำเข้าทุกชั้นพร้อมกัน</label></p>';
+    h+='<div id="iSingle"></div><div id="iPrev"></div><p><button class="pri" id="iGo">นำเข้า</button> <span id="iCnt" class="mute"></span></p>';
+    $('iBox').innerHTML=h;
+    var rowsToSend=[];
+    function single(){
+      var sheetSel = names.length>1 ? '<div><label>ชีต</label><select id="iS">'+names.map(function(n){return '<option>'+esc(n)+'</option>';}).join('')+'</select></div>' : '';
+      $('iSingle').innerHTML='<div class="row">'+sheetSel+'</div><div class="row" id="iMap"></div>';
+      var cur=names[0]; if($('iS')) $('iS').onchange=function(){ cur=this.value; mapUI(); };
+      function mapUI(){
+        var aoa=aoaOf(cur), d=detectMap(aoa);
+        var opt=function(sel){ return '<option value="-1">— ไม่ใช้ —</option>'+d.heads.map(function(t,k){return '<option value="'+k+'"'+(k===sel?' selected':'')+'>'+esc(t)+'</option>';}).join(''); };
+        $('iMap').innerHTML=[['no','เลขที่'],['title','คำนำหน้า'],['first','ชื่อ'],['last','นามสกุล'],['full','ชื่อ-สกุล (ช่องเดียว)']].map(function(x){
+          return '<div><label>'+x[1]+'</label><select data-m="'+x[0]+'">'+opt(d.map[x[0]])+'</select></div>'; }).join('');
+        function recompute(){
+          var m={}; [].forEach.call(document.querySelectorAll('[data-m]'),function(s){ m[s.dataset.m]=Number(s.value); });
+          rowsToSend=extractRows(aoa,d.hdr,m,$('iC').value); renderPrev();
+        }
+        [].forEach.call(document.querySelectorAll('[data-m]'),function(s){ s.onchange=recompute; });
+        $('iC').onchange=recompute; recompute();
+      }
+      mapUI();
+    }
+    function renderPrev(){
+      var p=rowsToSend.slice(0,6).map(function(r){return '<tr><td>'+esc(r.classLevel)+'</td><td>'+esc(r.no)+'</td><td class="l">'+esc(r.name)+'</td></tr>';}).join('');
+      $('iPrev').innerHTML='<table style="max-width:520px"><thead><tr><th>ชั้น</th><th>เลขที่</th><th class="l">ชื่อ-สกุล (ตัวอย่าง 6 รายการแรก)</th></tr></thead><tbody>'+(p||'<tr><td colspan="3" class="mute">ยังอ่านชื่อไม่ได้ — ตรวจการเลือกคอลัมน์ด้านบน</td></tr>')+'</tbody></table>';
+      var per={}; rowsToSend.forEach(function(r){per[r.classLevel]=(per[r.classLevel]||0)+1;});
+      $('iCnt').textContent='รวม '+rowsToSend.length+' คน ('+Object.keys(per).sort().map(function(c){return c+' '+per[c];}).join(' · ')+')';
+      $('iGo').disabled=!rowsToSend.length;
+    }
+    function auto(){
+      rowsToSend=[]; $('iSingle').innerHTML='';
+      clsSheets.forEach(function(n){ var aoa=aoaOf(n), d=detectMap(aoa); rowsToSend=rowsToSend.concat(extractRows(aoa,d.hdr,d.map,classOfSheet(n))); });
+      renderPrev();
+    }
+    if(multi){ $('iAuto').onchange=function(){ if(this.checked) auto(); else single(); }; auto(); } else single();
+    $('iGo').onclick=function(){
+      if(!rowsToSend.length) return;
+      $('iGo').disabled=true;
+      api('adminImportStudents',S.token,rowsToSend).then(function(r){ return aDone('นำเข้าแล้ว: เพิ่ม '+r.added+' คน · อัปเดต '+r.updated+' คน'); }).catch(function(e){ aErr(e); $('iGo').disabled=false; });
+    };
+  }
 }
+
 function aUsers(){
   var h='<div class="grid2"><div><label>อีเมล (ใช้เป็นชื่อผู้ใช้)</label><input id="uE" type="email"></div><div><label>ชื่อ-สกุล</label><input id="uN"></div>'
    +'<div><label>บทบาท</label><select id="uR"><option value="teacher">ครู</option><option value="admin">ผู้ดูแลระบบ</option></select></div>'
