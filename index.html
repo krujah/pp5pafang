@@ -53,9 +53,13 @@ td.ac:hover{background:#e8efff}
 .card.wb td{background:#fff}.card.wb th{background:#f7d0ec}
 .card.wb td.sticky,.card.wb th.sticky{background:#f7d0ec}
 .card.wb .tabs button.on{background:#107c41;color:#fff;border-color:#107c41}
-.wbbar{position:sticky;bottom:0;display:flex;gap:2px;overflow-x:auto;background:#e6e6e6;border-top:1px solid #9a9a9a;padding:4px 6px 0;margin:0 -2px;z-index:8}
-.wbbar button{border:1px solid #b8b8b8;border-top:0;border-radius:0 0 6px 6px;background:#f4f4f4;font-size:13px;padding:5px 12px;white-space:nowrap;color:#333}
-.wbbar button.on{background:#fff;color:#107c41;font-weight:700;border-bottom:3px solid #107c41}
+.wbbar{position:sticky;top:0;background:#e6e6e6;border:1px solid #9a9a9a;border-radius:6px;margin:0 0 8px;z-index:8;padding:4px 6px}
+.wbrow{display:flex;gap:2px;overflow-x:auto;padding-bottom:0}
+.wbrow button{border:1px solid #b8b8b8;border-bottom:0;border-radius:6px 6px 0 0;background:#f4f4f4;font-size:13px;padding:5px 12px;white-space:nowrap;color:#333}
+.wbrow button.on{background:#fff;color:#107c41;font-weight:700;border-top:3px solid #107c41}
+.wbtools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid #b8b8b8;padding:5px 8px}
+.wbtools .wbp{font-size:13px;padding:5px 12px;background:#107c41;color:#fff;border-color:#107c41}
+.xl input.xc.rng{background:#cfe3ff !important}
 td.ac.sel{outline:2px solid #1a73e8;outline-offset:-2px}
 td.ac{user-select:none;min-width:26px}
 select.ri,select.colfill,select.rowfill,select.pf,select.st{padding:3px 4px;font-size:14px}
@@ -64,7 +68,7 @@ details summary{cursor:pointer}
   body{background:#fff}header,main{display:none!important}#pview button{display:none}
   #print{display:block;font-family:'TH Sarabun New','Sarabun',sans-serif;font-size:14pt}
   #print table th,#print table td{border:1px solid #000;padding:2px 4px}
-  @page{size:A4 landscape;margin:12mm}
+  @page{size:A4 portrait;margin:10mm}
 }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -530,10 +534,32 @@ function aCfg(){
 var C = {};
 var TH_M = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 function thDate(iso){ if(!/^\d{4}-\d{2}-\d{2}$/.test(iso||'')) return ''; var p=iso.split('-'); return Number(p[2])+' '+TH_M[Number(p[1])]+' '+(Number(p[0])+543); }
+/* พิมพ์ทุกเอกสารเป็น A4 แนวตั้ง · ตารางความกว้างคงที่ ไม่ขยายตามข้อความ */
+function fixPrintTables(root){
+  [].forEach.call(root.querySelectorAll('table'), function(t){
+    if(t.querySelector('colgroup')) return;
+    var rows = [].slice.call(t.tBodies.length ? t.tBodies[0].rows : t.rows).filter(function(r){ return !r.querySelector('[colspan]'); });
+    if(!rows.length) return;
+    var best = rows.reduce(function(a, r){ return r.cells.length > a.cells.length ? r : a; }, rows[0]), n = best.cells.length;
+    if(n < 2) return;
+    var w = [];
+    for(var i=0;i<n;i++){
+      var mx = 0; rows.slice(0, 40).forEach(function(r){ var x = r.cells[i]; if(x){ var len = (x.textContent||'').trim().length; if(len > mx) mx = len; } });
+      var left = /left/.test((best.cells[i].getAttribute('style')||'')) || best.cells[i].classList.contains('l');
+      var hd = t.tHead ? [].map.call(t.tHead.rows, function(r){ return r.cells[i] ? r.cells[i].textContent : ''; }).join(' ') : '';
+      var tok = Math.min(7, hd.split(/\s+/).reduce(function(a, x){ return Math.max(a, x.replace(/[()0-9]/g,'').length); }, 0));
+      w.push(left ? Math.min(15, Math.max(8, mx * 0.8)) : Math.min(8, Math.max(3.2, mx * 1.1, tok * 0.8)));
+    }
+    var sum = w.reduce(function(a,b){ return a+b; }, 0);
+    var cg = document.createElement('colgroup'); w.forEach(function(x){ var col = document.createElement('col'); col.style.width = (x/sum*100).toFixed(2)+'%'; cg.appendChild(col); });
+    t.insertBefore(cg, t.firstChild); t.style.tableLayout = 'fixed'; t.style.width = '100%';
+    if(n > 16) t.style.fontSize = n > 28 ? '7pt' : '8.5pt';
+  });
+}
 function doPrint(html, orient){
-  $('print').innerHTML = html;
+  $('print').innerHTML = String(html).replace(/\.{22,}/g, '....................'); fixPrintTables($('print'));
   var st = $('pgStyle'); if(!st){ st = document.createElement('style'); st.id = 'pgStyle'; document.head.appendChild(st); }
-  st.textContent = orient === 'mixed' ? '@media print{@page{margin:12mm}@page land{size:A4 landscape;margin:12mm}@page port{size:A4 portrait;margin:12mm}}' : '@media print{@page{size:A4 ' + (orient || 'landscape') + ';margin:12mm}}';
+  st.textContent = '@media print{@page{size:A4 portrait;margin:10mm}#print table{table-layout:fixed;border-collapse:collapse;width:100%}#print td{overflow:hidden;white-space:nowrap;text-overflow:clip}#print th{overflow:hidden;word-break:break-word;line-height:1.15}#print tr{height:6.2mm}}';
   setTimeout(function(){ window.print(); }, 60);
 }
 function cErr(e){ var el = $('cMsg') || $('sMsg'); if(el) note(el, e.message, true); else alert(e.message); }
@@ -569,11 +595,30 @@ function wbMount(kind, active){
   var tabs = [['home','🏠 สารบัญ','h']];
   if(mine) CTABS.forEach(function(t){ tabs.push([t[0], t[1], 'c']); });
   (b.subjects||[]).filter(function(s){ return s.classLevel===cl; }).forEach(function(s,i){ tabs.push([s.key, 'วิชา '+(i+1)+' '+s.name, 's']); });
+  var subs = (b.subjects||[]).filter(function(s){ return s.classLevel===cl; });
   var bar = document.createElement('div'); bar.className = 'wbbar';
-  bar.innerHTML = tabs.map(function(t){ var on = (t[2]==='c' && kind==='cls' && active===t[0]) || (t[2]==='s' && kind==='subj' && active===t[0]);
-    return '<button data-k="'+esc(t[0])+'" data-g="'+t[2]+'"'+(on?' class="on"':'')+'>'+esc(t[1])+'</button>'; }).join('');
-  $('main').appendChild(bar);
-  [].forEach.call(bar.querySelectorAll('button'), function(x){ x.onclick = function(){
+  var tools = '';
+  if(mine) tools += '<button class="wbp" id="wbPrintCls" title="พิมพ์เล่ม ปพ.5 ประจำชั้น ครบทุกส่วน (ปก ข้อมูลนักเรียน เวลาเรียน โภชนาการ ผลสัมฤทธิ์ ฯลฯ)">🖨 พิมพ์ ปพ.5 ประจำชั้น</button>';
+  if(kind==='subj') tools += '<button class="wbp" id="wbPrintSub">🖨 พิมพ์ ปพ.5 ประจำวิชา</button>';
+  else if(subs.length) tools += '<select id="wbSub" style="padding:4px;font-size:13px">'+subs.map(function(s){ return '<option value="'+esc(s.key)+'">'+esc(s.code+' '+s.name)+'</option>'; }).join('')+'</select><button class="wbp" id="wbPrintSub">🖨 พิมพ์ ปพ.5 ประจำวิชา</button>';
+  bar.innerHTML = '<div class="wbrow">' + tabs.map(function(t){ var on = (t[2]==='c' && kind==='cls' && active===t[0]) || (t[2]==='s' && kind==='subj' && active===t[0]);
+    return '<button data-k="'+esc(t[0])+'" data-g="'+t[2]+'"'+(on?' class="on"':'')+'>'+esc(t[1])+'</button>'; }).join('') + '</div><div class="wbtools">' + tools + '<span id="wbMsg" class="mute"></span></div>';
+  $('main').insertBefore(bar, $('main').firstChild);
+  var pc = $('wbPrintCls'); if(pc) pc.onclick = function(){
+    $('wbMsg').textContent = 'กำลังรวบรวมข้อมูล...'; pc.disabled = true;
+    api('getClassBook', S.token, cl).then(function(bk){
+      var pgs = bookClassPages(bk, BK_SECS.map(function(x){ return x[0]; }));
+      doPrint(pgs.map(function(p, i){ return '<div style="page:'+(p.o==='land'?'land':'port')+(i<pgs.length-1?';page-break-after:always':'')+'">'+p.h+'</div>'; }).join(''), 'mixed');
+      $('wbMsg').textContent = '';
+    }).catch(function(e){ $('wbMsg').textContent = e.message; }).then(function(){ pc.disabled = false; });
+  };
+  var ps = $('wbPrintSub'); if(ps) ps.onclick = function(){
+    if(kind==='subj'){ printPP5(); return; }
+    $('wbMsg').textContent = 'กำลังโหลด...'; ps.disabled = true;
+    api('getSubjectData', S.token, $('wbSub').value).then(function(d){ doPrint(pp5Html(d), 'landscape'); $('wbMsg').textContent = ''; })
+      .catch(function(e){ $('wbMsg').textContent = e.message; }).then(function(){ ps.disabled = false; });
+  };
+  [].forEach.call(bar.querySelectorAll('.wbrow button'), function(x){ x.onclick = function(){
     var dirty = (kind==='cls' ? classDirty() : (Object.keys(S.dirty||{}).length || Object.keys(S.stDirty||{}).length));
     if(dirty && !confirm('มีข้อมูลที่ยังไม่ได้บันทึก ออกจากชีตนี้หรือไม่?')) return;
     if(x.dataset.g==='h') home();
@@ -1051,8 +1096,8 @@ function tabScores(){
   if(!pass && !d.assessments.length){ $('tab').innerHTML = '<p class="mute">ยังไม่มีช่องคะแนน — ไปที่แท็บ "ตั้งช่องคะแนน" ก่อน</p>'; return; }
   if(!S.stDirty) S.stDirty = {};
   var cols = pass ? [] : d.assessments;
-  var h = '<style>.xl td,.xl th{border:1px solid #9aa;padding:0}.xl th{background:#dfe9f5;padding:3px 5px;font-size:13px}.xl input.xc{width:100%;min-width:52px;border:0;padding:5px 4px;text-align:center;background:#fff;box-sizing:border-box;border-radius:0}.xl input.xc:focus{outline:2px solid #1a73e8;outline-offset:-2px}.xl input.xc.dirty{background:#fff8c4}.xl input.bad{background:#ffd6d6}.xl td.calc{background:#fde4ec;text-align:center;padding:3px 6px}.xl tr.tot td{background:#eef3e6;font-weight:600;text-align:center;padding:3px 6px}.xl tr.full th{background:#fff2c9}</style>';
-  h += '<div class="sc"><table class="xl"><thead><tr><th class="sticky" rowspan="2">ที่</th><th class="l sticky" style="left:42px" rowspan="2">ชื่อ-สกุล</th>';
+  var h = '<style>.xl td,.xl th{border:1px solid #9aa;padding:0}.xl th{background:#dfe9f5;padding:3px 5px;font-size:13px}.xl input.xc{width:100%;min-width:0;border:0;padding:5px 4px;text-align:center;background:#fff;box-sizing:border-box;border-radius:0}.xl input.xc:focus{outline:2px solid #1a73e8;outline-offset:-2px}.xl input.xc.dirty{background:#fff8c4}.xl input.bad{background:#ffd6d6}.xl td.calc{background:#fde4ec;text-align:center;padding:3px 6px}.xl tr.tot td{background:#eef3e6;font-weight:600;text-align:center;padding:3px 6px}.xl tr.full th{background:#fff2c9}</style>';
+  h += '<div class="sc"><table class="xl" style="table-layout:fixed;width:auto"><colgroup><col style="width:44px"><col style="width:190px">'+(pass?'<col style="width:130px">':cols.map(function(){ return '<col style="width:78px">'; }).join(''))+(pass?'':'<col style="width:70px"><col style="width:70px"><col style="width:70px">')+'<col style="width:56px"><col style="width:78px"><col style="width:78px"></colgroup><thead><tr><th class="sticky" rowspan="2">ที่</th><th class="l sticky" style="left:42px" rowspan="2">ชื่อ-สกุล</th>';
   if(pass) h += '<th rowspan="2">ผลการประเมิน</th>';
   else cols.forEach(function(a){ h += '<th>'+esc(a.name)+'<div class="mute" style="font-weight:400">'+aTypeLabel(a)+'</div></th>'; });
   h += (pass ? '' : '<th rowspan="2">ระหว่างเรียน</th><th rowspan="2">ปลายปี</th><th rowspan="2">รวม</th>') + '<th rowspan="2">เกรด</th><th rowspan="2" title="เวลาเรียนร้อยละ จากแท็บเวลาเรียนของครูประจำชั้น">เวลาเรียน %</th><th rowspan="2">ร / มส</th></tr>';
@@ -1076,7 +1121,7 @@ function tabScores(){
       h += '<td colspan="6"></td></tr>';
     });
   }
-  $('tab').innerHTML = h + '</tbody></table></div><p class="mute">ใช้งานเหมือน Excel: ลูกศร/Enter เลื่อนช่อง · วางข้อมูลจาก Excel/Google Sheets ได้ (คัดลอกทั้งบล็อกแล้ววางที่ช่องแรก) · ช่องสีชมพู = คำนวณอัตโนมัติ · ช่องสีเหลือง = ยังไม่บันทึก · "ร" = รอการตัดสิน · "มส" = ไม่มีสิทธิ์เข้าสอบ (ช่องเวลาเรียนสีแดง = ต่ำกว่า '+(d.minAtt||80)+'%) · ผู้ที่ติดสถานะ ร/มส จะไม่คิดเกรด</p>';
+  $('tab').innerHTML = h + '</tbody></table></div><p class="mute">ใช้งานเหมือน Excel: ลูกศร/Enter เลื่อนช่อง · Shift+ลูกศร (หรือ Shift+คลิก) เลือกหลายช่อง · Ctrl+C คัดลอก / Ctrl+V วางได้ทั้งบล็อก (วางข้ามจาก Excel/Google Sheets ได้) · Delete ลบทั้งช่วง · Ctrl+D คัดลอกค่าบนสุดลงมาทั้งคอลัมน์ · ช่องสีชมพู = คำนวณอัตโนมัติ · ช่องสีเหลือง = ยังไม่บันทึก · "ร" = รอการตัดสิน · "มส" = ไม่มีสิทธิ์เข้าสอบ (ช่องเวลาเรียนสีแดง = ต่ำกว่า '+(d.minAtt||80)+'%) · ผู้ที่ติดสถานะ ร/มส จะไม่คิดเกรด</p>';
   var grid = [].map.call(document.querySelectorAll('.xl tbody tr[data-s]'), function(tr){ return [].slice.call(tr.querySelectorAll('input.xc')); });
   function setVal(inp, v){
     v = String(v).trim().replace(/,/g,'');
@@ -1085,24 +1130,47 @@ function tabScores(){
     if(!bad){ if(v==='') delete S.cur.scores[inp.dataset.k]; else S.cur.scores[inp.dataset.k] = Number(v);
       S.dirty[inp.dataset.k] = true; inp.classList.add('dirty'); refreshRow(inp.closest('tr')); }
   }
+  var anc = null, foc = null;
+  function rng(){ if(!anc||!foc) return null; return {r1:Math.min(anc[0],foc[0]), r2:Math.max(anc[0],foc[0]), c1:Math.min(anc[1],foc[1]), c2:Math.max(anc[1],foc[1])}; }
+  function paint(){ [].forEach.call(document.querySelectorAll('input.xc.rng'), function(x){ x.classList.remove('rng'); });
+    var g = rng(); if(!g || (g.r1===g.r2 && g.c1===g.c2)) return;
+    for(var r=g.r1;r<=g.r2;r++) for(var k=g.c1;k<=g.c2;k++) if(grid[r] && grid[r][k]) grid[r][k].classList.add('rng'); }
+  function each(fn){ var g = rng(); if(!g) return; for(var r=g.r1;r<=g.r2;r++) for(var k=g.c1;k<=g.c2;k++) if(grid[r] && grid[r][k]) fn(grid[r][k], r, k); }
   grid.forEach(function(row,ri){ row.forEach(function(inp,ci){
     inp.oninput = function(){ setVal(inp, inp.value); updTot(); };
-    inp.onfocus = function(){ inp.select(); };
+    inp.onfocus = function(){ if(!window.__shiftSel){ anc = [ri,ci]; } foc = [ri,ci]; paint(); inp.select(); };
+    inp.onmousedown = function(e){ window.__shiftSel = e.shiftKey && !!anc; };
+    inp.onclick = function(e){ if(e.shiftKey && anc){ foc = [ri,ci]; paint(); } window.__shiftSel = false; };
+    inp.oncopy = function(e){
+      var g = rng(); if(!g || (g.r1===g.r2 && g.c1===g.c2)) return;
+      var lines = []; for(var r=g.r1;r<=g.r2;r++){ var cells = []; for(var k=g.c1;k<=g.c2;k++) cells.push(grid[r][k] ? grid[r][k].value : ''); lines.push(cells.join('\t')); }
+      e.clipboardData.setData('text/plain', lines.join('\n')); e.preventDefault();
+    };
     inp.onkeydown = function(e){
-      var t = null;
-      if(e.key==='Enter'||e.key==='ArrowDown') t = grid[ri+1] && grid[ri+1][ci];
-      else if(e.key==='ArrowUp') t = grid[ri-1] && grid[ri-1][ci];
-      else if(e.key==='ArrowRight' && (inp.selectionStart===inp.value.length||inp.selectionStart===0&&inp.selectionEnd===inp.value.length)) t = row[ci+1];
-      else if(e.key==='ArrowLeft' && (inp.selectionStart===0)) t = row[ci-1];
+      var t = null, k = e.key;
+      if(e.shiftKey && /^Arrow/.test(k)){
+        var f = foc || [ri,ci], nr = f[0] + (k==='ArrowDown'?1:k==='ArrowUp'?-1:0), nc = f[1] + (k==='ArrowRight'?1:k==='ArrowLeft'?-1:0);
+        if(grid[nr] && grid[nr][nc]){ if(!anc) anc = [ri,ci]; foc = [nr,nc]; paint(); } e.preventDefault(); return;
+      }
+      var g = rng(), multi = g && (g.r1!==g.r2 || g.c1!==g.c2);
+      if((k==='Delete'||k==='Backspace') && multi){ each(function(x){ setVal(x,''); }); updTot(); e.preventDefault(); return; }
+      if((e.ctrlKey||e.metaKey) && (k==='d'||k==='D') && multi){ for(var cc=g.c1;cc<=g.c2;cc++){ var v0 = grid[g.r1][cc].value; for(var r=g.r1+1;r<=g.r2;r++) setVal(grid[r][cc], v0); } updTot(); e.preventDefault(); return; }
+      if(k==='Enter'||k==='ArrowDown') t = grid[ri+1] && grid[ri+1][ci];
+      else if(k==='ArrowUp') t = grid[ri-1] && grid[ri-1][ci];
+      else if(k==='ArrowRight' && (inp.selectionStart===inp.value.length||inp.selectionStart===0&&inp.selectionEnd===inp.value.length)) t = row[ci+1];
+      else if(k==='ArrowLeft' && (inp.selectionStart===0)) t = row[ci-1];
       else return;
-      e.preventDefault(); if(t){ t.focus(); t.select(); }
+      e.preventDefault(); if(t){ anc = null; t.focus(); t.select(); }
     };
     inp.onpaste = function(e){
-      var txt = (e.clipboardData||window.clipboardData).getData('text');
-      if(!/[\t\n]/.test(txt.replace(/\r?\n$/,''))) return;
+      var txt = (e.clipboardData||window.clipboardData).getData('text').replace(/\r?\n$/,'');
+      var g = rng(), multi = g && (g.r1!==g.r2 || g.c1!==g.c2);
+      if(multi && !/[\t\n]/.test(txt)){ e.preventDefault(); each(function(x){ setVal(x, txt); }); updTot(); return; }   // วางค่าเดียวลงทั้งช่วงที่เลือก
+      if(!/[\t\n]/.test(txt)) return;
       e.preventDefault();
-      txt.replace(/\r?\n$/,'').split(/\r?\n/).forEach(function(line,i){
-        line.split('\t').forEach(function(c,j){ var t = grid[ri+i] && grid[ri+i][ci+j]; if(t) setVal(t, c); });
+      var r0 = multi ? g.r1 : ri, c0 = multi ? g.c1 : ci;
+      txt.split(/\r?\n/).forEach(function(line,i){
+        line.split('\t').forEach(function(c,j){ var t = grid[r0+i] && grid[r0+i][c0+j]; if(t) setVal(t, c); });
       });
       updTot();
     };
