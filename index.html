@@ -53,12 +53,17 @@ td.ac:hover{background:#e8efff}
 .card.wb td{background:#fff}.card.wb th{background:#f7d0ec}
 .card.wb td.sticky,.card.wb th.sticky{background:#f7d0ec}
 .card.wb .tabs button.on{background:#107c41;color:#fff;border-color:#107c41}
-.wbbar{position:sticky;top:0;background:#e6e6e6;border:1px solid #9a9a9a;border-radius:6px;margin:0 0 8px;z-index:8;padding:4px 6px}
-.wbrow{display:flex;gap:2px;overflow-x:auto;padding-bottom:0}
-.wbrow button{border:1px solid #b8b8b8;border-bottom:0;border-radius:6px 6px 0 0;background:#f4f4f4;font-size:13px;padding:5px 12px;white-space:nowrap;color:#333}
-.wbrow button.on{background:#fff;color:#107c41;font-weight:700;border-top:3px solid #107c41}
-.wbtools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid #b8b8b8;padding:5px 8px}
-.wbtools .wbp{font-size:13px;padding:5px 12px;background:#107c41;color:#fff;border-color:#107c41}
+.wbbar{position:sticky;top:0;background:#fff;border:1px solid #cfd6e4;border-radius:14px;margin:0 0 10px;z-index:8;padding:10px;box-shadow:0 2px 8px rgba(20,40,90,.12)}
+.wbrow{display:flex;flex-wrap:wrap;gap:8px;padding:0 0 8px}
+.wbrow button{border:2px solid #2457d6;background:#eef3ff;color:#1b3f9e;font-size:15px;font-weight:600;padding:9px 15px;border-radius:12px;white-space:nowrap;cursor:pointer;transition:transform .08s,box-shadow .12s}
+.wbrow button:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(36,87,214,.25)}
+.wbrow button[data-g="h"]{border-color:#7a4cc2;background:#f3ecff;color:#5a2fa0}
+.wbrow button[data-g="s"]{border-color:#c9741a;background:#fff3e3;color:#8a4a0a}
+.wbrow button.on{background:#2457d6;color:#fff;box-shadow:0 3px 10px rgba(36,87,214,.35)}
+.wbrow button[data-g="s"].on{background:#d9822b;border-color:#d9822b;color:#fff;box-shadow:0 3px 10px rgba(217,130,43,.35)}
+.wbtools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-top:1px dashed #cfd6e4;padding-top:8px}
+.wbtools .wbp{font-size:15px;font-weight:600;padding:9px 16px;border-radius:12px;background:#107c41;color:#fff;border:2px solid #107c41}
+.wbtools select{font-size:15px;padding:8px;border-radius:10px;border:2px solid #c9741a;background:#fff}
 .xl input.xc.rng{background:#cfe3ff !important}
 td.ac.sel{outline:2px solid #1a73e8;outline-offset:-2px}
 td.ac{user-select:none;min-width:26px}
@@ -613,8 +618,9 @@ function wbMount(kind, active){
   var b = S.boot || {}, cl = kind==='cls' ? C.cl : (S.cur && S.cur.subject.classLevel);
   var mine = ((b.myClasses||[]).indexOf(cl) >= 0) || (S.user && S.user.role==='admin') || (b.user && b.user.role==='admin');
   var tabs = [['home','🏠 สารบัญ','h']];
-  if(mine) CTABS.forEach(function(t){ tabs.push([t[0], t[1], 'c']); });
-  (b.subjects||[]).filter(function(s){ return s.classLevel===cl; }).forEach(function(s,i){ tabs.push([s.key, 'วิชา '+(i+1)+' '+s.name, 's']); });
+  var ICO = {att:'📅', hw:'⚖️', nut:'🥗', trait:'⭐', value:'💡', act:'🎯', info:'👤', rep:'📄', book:'📚'};
+  if(mine) CTABS.forEach(function(t){ tabs.push([t[0], (ICO[t[0]]||'')+' '+t[1], 'c']); });
+  (b.subjects||[]).filter(function(s){ return s.classLevel===cl; }).forEach(function(s,i){ tabs.push([s.key, '📘 วิชา '+(i+1)+' '+s.name, 's']); });
   var subs = (b.subjects||[]).filter(function(s){ return s.classLevel===cl; });
   var bar = document.createElement('div'); bar.className = 'wbbar';
   var tools = '';
@@ -861,9 +867,15 @@ var HW_GROUPS = [['1','1'],['1','2'],['2','1'],['2','2']];
 function hwLoad(cb){ api('getHealth', S.token, C.cl).then(function(d){ C.hw = d; C.hwDirty = {}; C.hwDate = {}; C.hwDateDirty = {}; C.rec = {};
   d.records.forEach(function(r){ C.rec[r.studentId+'|'+r.term+'|'+r.round] = {weight: nz(r.weight), height: nz(r.height), ageM: nz(r.ageM)}; if(r.date && !C.hwDate[r.term+'|'+r.round]) C.hwDate[r.term+'|'+r.round] = r.date; }); cb(); }).catch(cErr); }
 function cHw(){ $('ctab').innerHTML = 'กำลังโหลด...'; hwLoad(drawHw); }
+function ageMonthsC(birth, date){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(birth||'') || !/^\d{4}-\d{2}-\d{2}$/.test(date||'')) return '';
+  var b = birth.split('-').map(Number), d = date.split('-').map(Number), m = (d[0]-b[0])*12 + (d[1]-b[1]) - (d[2] < b[2] ? 1 : 0);
+  return m < 0 ? '' : m;
+}
+function ageLabel(birth, date){ var m = ageMonthsC(birth, date); return m === '' ? '' : String(m); }
 function drawHw(){
   var d = C.hw;
-  var h = '<p class="mute">กรอกน้ำหนัก (กก.) และส่วนสูง (ซม.) ของแต่ละครั้ง · วันที่ชั่ง/วัดใช้คำนวณอายุจากวันเกิด (ใส่วันเกิดที่แท็บ "ข้อมูลนักเรียน") · ถ้าไม่มีวันเกิด ใส่อายุเป็นเดือนในช่อง "อายุ(ด.)" แทนได้</p><div class="row" style="margin-bottom:8px"><button class="pri" id="hwSave">บันทึก</button></div><div class="sc"><table><thead><tr><th rowspan="3" class="sticky">ที่</th><th rowspan="3" class="l sticky" style="left:42px">ชื่อ-สกุล</th>';
+  var h = '<p class="mute">กรอกน้ำหนัก (กก.) และส่วนสูง (ซม.) ของแต่ละครั้ง · อายุ(ด.) ระบบคำนวณให้อัตโนมัติจากวันเกิด (แท็บ "ข้อมูลนักเรียน") และวันที่ชั่ง/วัดที่เลือกไว้ใต้หัวตาราง · ถ้านักเรียนคนไหนยังไม่มีวันเกิด จะมีช่องให้กรอกอายุเป็นเดือนเอง</p><div class="row" style="margin-bottom:8px"><button class="pri" id="hwSave">บันทึก</button></div><div class="sc"><table><thead><tr><th rowspan="3" class="sticky">ที่</th><th rowspan="3" class="l sticky" style="left:42px">ชื่อ-สกุล</th>';
   HW_GROUPS.forEach(function(g){ h += '<th colspan="3">ภาคเรียนที่ '+g[0]+' ครั้งที่ '+g[1]+'</th>'; });
   h += '</tr><tr>';
   HW_GROUPS.forEach(function(g){ h += '<th colspan="3"><input type="date" class="hd" data-g="'+g[0]+'|'+g[1]+'" value="'+esc(C.hwDate[g[0]+'|'+g[1]]||'')+'" style="width:140px"></th>'; });
@@ -872,17 +884,21 @@ function drawHw(){
     h += '<tr><td class="sticky">'+esc(s.no)+'</td><td class="l sticky" style="left:42px;white-space:nowrap">'+esc(stuName(s))+'</td>';
     HW_GROUPS.forEach(function(g){
       var k = s.studentId+'|'+g[0]+'|'+g[1], r = C.rec[k] || {}, res = d.results[k] || {};
-      ['weight','height','ageM'].forEach(function(f){ h += '<td><input class="hw" data-k="'+esc(k)+'" data-f="'+f+'" inputmode="decimal" style="width:'+(f==='ageM'?'54':'64')+'px" value="'+esc(nz(r[f]))+'"'+(f==='ageM'&&res.ageM!==undefined&&res.ageM!==''&&r.ageM===''?' placeholder="'+res.ageM+'"':'')+'></td>'; });
+      var gd = C.hwDate[g[0]+'|'+g[1]] || '';
+      ['weight','height'].forEach(function(f){ h += '<td><input class="hw" data-k="'+esc(k)+'" data-f="'+f+'" inputmode="decimal" style="width:64px" value="'+esc(nz(r[f]))+'"></td>'; });
+      if(s.birth) h += '<td class="calc ageauto" data-g="'+g[0]+'|'+g[1]+'" data-birth="'+esc(s.birth)+'" style="width:60px">'+esc(ageLabel(s.birth, gd))+'</td>';
+      else h += '<td><input class="hw" data-k="'+esc(k)+'" data-f="ageM" inputmode="decimal" style="width:54px" placeholder="ไม่มีวันเกิด" title="ยังไม่ได้ใส่วันเกิดในแท็บข้อมูลนักเรียน — กรอกอายุเป็นเดือนเอง หรือไปใส่วันเกิดเพื่อให้ระบบคำนวณให้" value="'+esc(nz(r.ageM))+'"></td>';
     });
     h += '</tr>';
   });
   $('ctab').innerHTML = h + '</tbody></table></div>';
   [].forEach.call(document.querySelectorAll('input.hw'), function(inp){ inp.oninput=function(){
     var p = inp.dataset.k.split('|'), k = inp.dataset.k; C.rec[k] = C.rec[k] || {weight:'',height:'',ageM:''}; C.rec[k][inp.dataset.f] = inp.value.trim(); C.hwDirty[k] = true; inp.classList.add('dirty'); }; });
-  [].forEach.call(document.querySelectorAll('input.hd'), function(inp){ inp.onchange=function(){ C.hwDate[inp.dataset.g] = inp.value; C.hwDateDirty[inp.dataset.g] = true; C.hwDirty['_d|'+inp.dataset.g] = true; }; });
+  [].forEach.call(document.querySelectorAll('input.hd'), function(inp){ inp.onchange=function(){ C.hwDate[inp.dataset.g] = inp.value; C.hwDateDirty[inp.dataset.g] = true; C.hwDirty['_d|'+inp.dataset.g] = true;
+    [].forEach.call(document.querySelectorAll('td.ageauto[data-g="'+inp.dataset.g+'"]'), function(td){ td.textContent = ageLabel(td.dataset.birth, inp.value); }); }; });
   $('hwSave').onclick = function(){
     var rows = [], seen = {};
-    function add(sid, t, r){ var k = sid+'|'+t+'|'+r; if(seen[k]) return; seen[k] = 1; var x = C.rec[k] || {weight:'',height:'',ageM:''}; rows.push({studentId:sid, term:t, round:r, date:C.hwDate[t+'|'+r]||'', weight:x.weight, height:x.height, ageM:x.ageM}); }
+    function add(sid, t, r){ var k = sid+'|'+t+'|'+r; if(seen[k]) return; seen[k] = 1; var x = C.rec[k] || {weight:'',height:'',ageM:''}; rows.push({studentId:sid, term:t, round:r, date:C.hwDate[t+'|'+r]||'', weight:x.weight, height:x.height, ageM:(d.students.filter(function(z){return z.studentId===sid;})[0]||{}).birth ? '' : x.ageM}); }
     Object.keys(C.hwDirty).forEach(function(k){ if(k.indexOf('_d|')===0) return; var p=k.split('|'); add(p[0],p[1],p[2]); });
     Object.keys(C.hwDateDirty).forEach(function(g){ var p=g.split('|'); d.students.forEach(function(s){ var x=C.rec[s.studentId+'|'+g]; if(x && (x.weight!==''||x.height!==''||x.ageM!=='')) add(s.studentId,p[0],p[1]); }); });
     if(!rows.length){ cOk('ไม่มีการเปลี่ยนแปลง'); return; }
