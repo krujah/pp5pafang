@@ -429,9 +429,29 @@ function aStudents(){
    +'<div class="row"><div><label>นำเข้าเข้าชั้น</label><select id="iC">'+clsOpts+'</select></div>'
    +'<div><label>เลือกไฟล์ (.xlsx .xls .csv)</label><input type="file" id="iF" accept=".xlsx,.xls,.csv,.txt"></div>'
    +'<button id="iTpl">ดาวน์โหลดไฟล์ตัวอย่าง (CSV)</button></div><div id="iBox"></div></div>'
+   +'<div class="card" style="margin:0 0 12px;border-color:#107c41"><b>นำเข้าจากไฟล์ DMC (studentInSchoolList.xlsx)</b>'
+   +'<div class="mute">สร้างรายชื่อนักเรียนทุกชั้นพร้อมข้อมูลส่วนตัว บิดา-มารดา ผู้ปกครอง ที่อยู่ จากไฟล์ที่ส่งออกจากระบบ DMC · เลขที่เรียงชายก่อนหญิงตามรหัสนักเรียน · นักเรียนที่ชื่อซ้ำกับที่มีอยู่จะอัปเดตข้อมูล (ไม่เปลี่ยนเลขที่/คะแนน)</div>'
+   +'<div class="row"><input type="file" id="dmcF" accept=".xlsx,.xls"><button class="pri" id="dmcGo" disabled>นำเข้า</button></div><div id="dmcBox"></div></div>'
    +'<details><summary class="mute" style="cursor:pointer">หรือวางข้อมูลเอง (1 บรรทัดต่อ 1 คน: ชั้น, เลขที่, ชื่อ-สกุล)</summary>'
    +'<textarea id="stIn" rows="7" style="width:100%;font:inherit;border:1px solid var(--line);border-radius:8px;padding:8px;margin-top:8px" placeholder="ป.5, 1, เด็กชายสมชาย ใจดี&#10;ป.5, 2, เด็กหญิงสมหญิง รักเรียน"></textarea>'
    +'<p class="mute">ถ้าชั้น+เลขที่ซ้ำกับที่มีอยู่ จะอัปเดตชื่อ (คะแนนเดิมยังอยู่)</p><button class="pri" id="stGo">นำเข้า</button></details>';
+  var dmcRows=null;
+  $('dmcF').onchange=function(){
+    var f=this.files[0]; dmcRows=null; $('dmcGo').disabled=true; $('dmcBox').innerHTML=''; if(!f) return;
+    if(typeof XLSX==='undefined') return aErr(new Error('โหลดตัวอ่านไฟล์ Excel ไม่สำเร็จ (ต้องต่ออินเทอร์เน็ต)'));
+    f.arrayBuffer().then(function(b){
+      var rows=dmcParse(b), ok=rows.filter(function(r){ return S.boot.classes.indexOf(r.classLevel)>=0; });
+      var by={}; ok.forEach(function(r){ (by[r.classLevel]=by[r.classLevel]||[]).push(r); });
+      var out=[]; S.boot.classes.forEach(function(c){ if(by[c]) dmcOrder(by[c]).forEach(function(r){ out.push(r); }); });
+      dmcRows=out; $('dmcGo').disabled=!out.length;
+      $('dmcBox').innerHTML='<p>พบนักเรียน <b>'+rows.length+'</b> คน · นำเข้าได้ <b>'+out.length+'</b> คน ('+S.boot.classes.filter(function(c){return by[c];}).map(function(c){return c+' '+by[c].length;}).join(' · ')+')'+(rows.length-out.length?' · ข้าม '+(rows.length-out.length)+' คน (ชั้นไม่อยู่ในระบบ)':'')+'</p>';
+    }).catch(aErr);
+  };
+  $('dmcGo').onclick=function(){
+    if(!dmcRows||!confirm('นำเข้านักเรียน '+dmcRows.length+' คน จากไฟล์ DMC ใช่หรือไม่?')) return;
+    $('dmcGo').disabled=true;
+    api('adminImportDmc',S.token,dmcRows).then(function(r){ return aDone('นำเข้า DMC: เพิ่ม '+r.added+' คน · อัปเดต '+r.updated+' คน'+(r.skipped?' · ข้าม '+r.skipped:'')); }).catch(aErr);
+  };
   $('stGo').onclick=function(){
     var rows=$('stIn').value.split(/\n/).map(function(l){return l.trim();}).filter(Boolean).map(function(l){
       var p=l.split(/\t|,/); return {classLevel:(p[0]||'').trim(),no:(p[1]||'').trim(),name:p.slice(2).join(',').trim()};
@@ -649,6 +669,36 @@ function classDirty(){
   return !!((C.attDirty && Object.keys(C.attDirty).length) || (C.calDirty && Object.keys(C.calDirty).length) || (C.hwDirty && Object.keys(C.hwDirty).length) || (C.rateDirty && Object.keys(C.rateDirty).length) || (C.infoDirty && Object.keys(C.infoDirty).length));
 }
 function stuName(s){ return s.name + (s.status ? ' ('+s.status+')' : ''); }
+
+/* ================= นำเข้าไฟล์ DMC ================= */
+function dmcNameKey(s){ return String(s||'').replace(/\s+/g,'').replace(/^(เด็กชาย|เด็กหญิง|ด\.ช\.|ด\.ญ\.|ดช\.|ดญ\.|นาย|นางสาว|น\.ส\.|นส\.|นาง)/,''); }
+function dmcParse(buf){
+  var wb = XLSX.read(buf, {type:'array'}), out = null;
+  wb.SheetNames.forEach(function(n){
+    if(out) return;
+    var a = XLSX.utils.sheet_to_json(wb.Sheets[n], {header:1, raw:false, defval:''}); if(!a.length) return;
+    var h = a[0].map(function(x){ return String(x).trim(); });
+    if(h.indexOf('เลขประจำตัวประชาชน') < 0 || h.indexOf('ชื่อ') < 0 || h.indexOf('นามสกุล') < 0) return;
+    var ix = function(n){ return h.indexOf(n); }, g = function(r, n){ var i = ix(n); return i < 0 ? '' : String(r[i] == null ? '' : r[i]).trim(); };
+    var pre = function(r, p, a2, b2, c2){ return (g(r,a2)+g(r,b2)+(g(r,c2)? ' '+g(r,c2):'')).trim(); };
+    var addr = function(r, t){ var p = [g(r,'เลขที่บ้าน ('+t+')'), g(r,'หมู่ ('+t+')') ? 'หมู่ '+g(r,'หมู่ ('+t+')') : '', g(r,'ถนน ('+t+')'), g(r,'ตำบล ('+t+')') ? 'ต.'+g(r,'ตำบล ('+t+')') : '', g(r,'อำเภอ ('+t+')') ? 'อ.'+g(r,'อำเภอ ('+t+')') : '', g(r,'จังหวัด ('+t+')') ? 'จ.'+g(r,'จังหวัด ('+t+')') : '', g(r,'รหัสไปรษณีย์ ('+t+')')]; return p.filter(Boolean).join(' '); };
+    out = a.slice(1).filter(function(r){ return g(r,'ชื่อ'); }).map(function(r){
+      var b = g(r,'วันเกิด'), iso = '', m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(b);
+      if(m){ var y = Number(m[3]); if(y > 2400) y -= 543; iso = y+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[1]).slice(-2); }
+      var sx = g(r,'เพศ'), pf = g(r,'คำนำหน้าชื่อ'), sex = /^(ช|ชาย)$/.test(sx) || /เด็กชาย|นาย|ด\.ช/.test(pf) ? 'ชาย' : (/^(ญ|ห|หญิง)$/.test(sx) || /เด็กหญิง|นางสาว|ด\.ญ/.test(pf) ? 'หญิง' : '');
+      return {classLevel: g(r,'ชั้น'), room: g(r,'ห้อง'), code: g(r,'รหัสนักเรียน'), name: (pf+g(r,'ชื่อ')+' '+g(r,'นามสกุล')).trim(), sex: sex, birth: iso,
+        nationality: g(r,'สัญชาติ'), religion: g(r,'ศาสนา'), idCard: g(r,'เลขประจำตัวประชาชน'), address: addr(r,'ที่อยู่ปัจจุบัน') || addr(r,'ทะเบียนบ้าน'),
+        father: pre(r,0,'คำนำหน้าชื่อบิดา','ชื่อบิดา','นามสกุลบิดา'), mother: pre(r,0,'คำนำหน้าชื่อมารดา','ชื่อมารดา','นามสกุลมารดา'),
+        guardian: pre(r,0,'คำนำหน้าชื่อผู้ปกครอง','ชื่อผู้ปกครอง','นามสกุลผู้ปกครอง'), guardianRel: g(r,'ความเกี่ยวข้องของผู้ปกครองกับนักเรียน'),
+        phone: g(r,'หมายเลขโทรศัพท์ของผู้ปกครอง') || g(r,'หมายเลขโทรศัพท์ของบิดา') || g(r,'หมายเลขโทรศัพท์ของมารดา')};
+    });
+  });
+  if(!out) throw new Error('ไม่พบแผ่นงานที่มีหัวตารางของ DMC (ต้องมีคอลัมน์ เลขประจำตัวประชาชน, ชื่อ, นามสกุล, ชั้น) — ใช้ไฟล์ studentInSchoolList ที่ส่งออกจาก DMC โดยตรง');
+  return out;
+}
+function dmcOrder(rows){   // เรียงเลขที่: ชายก่อนหญิง ตามรหัสนักเรียน
+  return rows.slice().sort(function(a,b){ return (a.sex==='ชาย'?0:1)-(b.sex==='ชาย'?0:1) || String(a.code).localeCompare(String(b.code)) || a.name.localeCompare(b.name); });
+}
 
 /* ================= เวลาเรียน ================= */
 var BRUSH = ['ม','ป','ล','ข','ล้าง'];
@@ -970,7 +1020,7 @@ function cInfo(){
 }
 function drawInfo(){
   var d = C.info;
-  var h = '<p class="mute">เพศใช้คำนวณภาวะโภชนาการ · วันเกิดใช้คำนวณอายุ · นักเรียนที่ย้าย/ลาออก ให้เลือกสถานะ (ระบบจะไม่นับในสถิติและอันดับ แต่เก็บชื่อไว้จนสิ้นปี)</p><div class="row" style="margin-bottom:8px"><button class="pri" id="inSave">บันทึก</button><button id="inTpl">ดาวน์โหลดแบบฟอร์ม (CSV)</button><label style="margin:0"><input type="file" id="inFile" accept=".csv,.xlsx,.xls" style="display:none"><span class="btn" style="border:1px solid var(--line);border-radius:8px;padding:8px 14px;cursor:pointer;background:#fff">นำเข้าจากไฟล์ (ตามเลขที่)</span></label></div><div class="sc"><table id="inT"><thead><tr><th class="sticky">ที่</th><th class="l sticky" style="left:42px">ชื่อ-สกุล</th>'
+  var h = '<p class="mute">เพศใช้คำนวณภาวะโภชนาการ · วันเกิดใช้คำนวณอายุ · นักเรียนที่ย้าย/ลาออก ให้เลือกสถานะ (ระบบจะไม่นับในสถิติและอันดับ แต่เก็บชื่อไว้จนสิ้นปี)</p><div class="row" style="margin-bottom:8px"><button class="pri" id="inSave">บันทึก</button><button id="inTpl">ดาวน์โหลดแบบฟอร์ม (CSV)</button><label style="margin:0"><input type="file" id="inDmc" accept=".xlsx,.xls" style="display:none"><span class="btn" style="border:1px solid #107c41;color:#107c41;border-radius:8px;padding:8px 14px;cursor:pointer;background:#fff">นำเข้าจากไฟล์ DMC</span></label><label style="margin:0"><input type="file" id="inFile" accept=".csv,.xlsx,.xls" style="display:none"><span class="btn" style="border:1px solid var(--line);border-radius:8px;padding:8px 14px;cursor:pointer;background:#fff">นำเข้าจากไฟล์ (ตามเลขที่)</span></label></div><div class="sc"><table id="inT"><thead><tr><th class="sticky">ที่</th><th class="l sticky" style="left:42px">ชื่อ-สกุล</th>'
     + INFO_COLS.map(function(c){ return '<th>'+c[1]+'</th>'; }).join('') + '</tr></thead><tbody>';
   d.students.forEach(function(s){
     h += '<tr data-s="'+esc(s.studentId)+'"><td class="sticky">'+esc(s.no)+'</td><td class="l sticky" style="left:42px;white-space:nowrap">'+esc(s.name)+'</td>';
@@ -988,6 +1038,23 @@ function drawInfo(){
     var list = d.students.filter(function(s){ return C.infoDirty[s.studentId]; }); if(!list.length){ cOk('ไม่มีการเปลี่ยนแปลง'); return; }
     $('inSave').disabled = true;
     api('saveStudentInfo', S.token, C.cl, list).then(function(n){ C.infoDirty = {}; cOk('บันทึกแล้ว '+n+' คน'); }).catch(cErr).then(function(){ $('inSave').disabled=false; });
+  };
+  $('inDmc').onchange = function(){
+    var f = this.files[0]; if(!f) return; var inp = this;
+    if(typeof XLSX==='undefined'){ cErr(new Error('โหลดตัวอ่านไฟล์ Excel ไม่สำเร็จ (ต้องต่ออินเทอร์เน็ต)')); return; }
+    f.arrayBuffer().then(function(buf){
+      var rows = dmcParse(buf).filter(function(r){ return r.classLevel === C.cl; });
+      if(!rows.length) throw new Error('ในไฟล์ไม่มีนักเรียนชั้น '+C.cl);
+      var byKey = {}; rows.forEach(function(r){ byKey[dmcNameKey(r.name)] = r; });
+      var hit = 0, miss = [];
+      d.students.forEach(function(s){
+        var r = byKey[dmcNameKey(s.name)]; if(!r){ miss.push(s.name); return; }
+        ['sex','birth','nationality','religion','idCard','address','father','mother','guardian','guardianRel','phone'].forEach(function(k){ if(r[k]) s[k] = r[k]; });
+        C.infoDirty[s.studentId] = true; hit++;
+      });
+      drawInfo();
+      cOk('จับคู่ได้ '+hit+' จาก '+d.students.length+' คน (ชื่อตรงกัน) — ตรวจแล้วกดบันทึก'+(miss.length?' · ไม่พบในไฟล์: '+miss.join(', '):''));
+    }).catch(cErr); inp.value = '';
   };
   $('inTpl').onclick = function(){
     var rows = [['เลขที่'].concat(INFO_COLS.map(function(c){return c[1];}))];
