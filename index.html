@@ -115,18 +115,18 @@ function note(el,text,err){ el.innerHTML='<div class="msg'+(err?' err':'')+'">'+
 /* ---- เกรด (ต้องตรงกับ gradeOf ใน Code.gs) ---- */
 function gradeOf(p){ if(p==null||isNaN(p))return''; return p>=80?4:p>=75?3.5:p>=70?3:p>=65?2.5:p>=60?2:p>=55?1.5:p>=50?1:0; }
 function calc(stu, d){
-  var sd=0,md=0,sf=0,mf=0,filled=0;
+  var sd=0,md=0,sf=0,mf=0,sc=0,mc=0,filled=0;
   d.assessments.forEach(function(a){
-    var v=d.scores[stu.studentId+'|'+a.id], mx=Number(a.max);
-    if(a.type==='final'){ mf+=mx; if(v!==undefined&&v!==''){sf+=Number(v);filled++;} }
-    else { md+=mx; if(v!==undefined&&v!==''){sd+=Number(v);filled++;} }
+    var v=d.scores[stu.studentId+'|'+a.id], mx=Number(a.max), has=(v!==undefined&&v!=='');
+    if(a.type==='final'){ mf+=mx; if(has){sf+=Number(v);filled++;} }
+    else if(a.type==='central'){ mc+=mx; if(has){sc+=Number(v);filled++;} }
+    else { md+=mx; if(has){sd+=Number(v);filled++;} }
   });
-  var rd=Number(d.subject.ratioDuring), rf=Number(d.subject.ratioFinal);
-  var during = md? sd/md*rd : 0, fin = mf? sf/mf*rf : 0;
-  if(!md) { /* ไม่มีช่องปลายปี/ระหว่างเรียน -> คิดเฉพาะที่มี */ }
-  var total = during+fin;
-  var full = (md?rd:0)+(mf?rf:0);
-  var pct = full? total/full*100 : null;   // ถ้ามีครบทั้งสองส่วน full=100
+  var rd=Number(d.subject.ratioDuring), rf=Number(d.subject.ratioFinal), cp=(Number(d.subject.centralPct)||0)/100;
+  var finFrac=null;
+  if(cp>0&&mc>0) finFrac=(mf?sf/mf*(1-cp):0)+sc/mc*cp; else if(mf) finFrac=sf/mf;
+  var during=md?sd/md*rd:0, fin=finFrac===null?0:finFrac*rf;
+  var full=(md?rd:0)+(finFrac===null?0:rf), total=during+fin, pct=full?total/full*100:null;
   return { during:during, fin:fin, total:total, pct:filled?pct:null, grade: filled?gradeOf(pct):'' };
 }
 function r2(x){ return (Math.round(x*100)/100).toString(); }
@@ -239,18 +239,30 @@ function renderSubject(){
 function tabSetup(){
   if(S.cur.subject.kind==='pass'){ $('tab').innerHTML='<p class="mute">รายวิชานี้ประเมินผลเป็น ผ่าน/ไม่ผ่าน (ผ/มผ) ไม่ต้องตั้งช่องคะแนน — ไปที่แท็บ "กรอกคะแนน" เพื่อเลือกผลของนักเรียน</p>'; return; }
   var d=S.cur, h='<p class="mute">เพิ่มช่องคะแนนระหว่างเรียน (เช่น ตัวชี้วัด/หน่วย/ชิ้นงาน) และช่องคะแนนปลายปี/ปลายภาค ระบบจะปรับสัดส่วนให้เป็น '+esc(d.subject.ratioDuring)+':'+esc(d.subject.ratioFinal)+' อัตโนมัติ</p>'
+   +'<fieldset style="margin:8px 0;padding:8px"><legend>ตั้งค่ารายวิชา (เหมือนช่องตั้งค่าในไฟล์ Excel)</legend><div class="row">'
+   +'<label>ระหว่างเรียน % <input id="stRd" type="number" style="width:70px" value="'+esc(d.subject.ratioDuring)+'"></label>'
+   +'<label>ปลายปี % <input id="stRf" type="number" style="width:70px" value="'+esc(d.subject.ratioFinal)+'"></label>'
+   +'<label>สัดส่วนข้อสอบกลาง (ของคะแนนปลายปี) % <input id="stCp" type="number" style="width:70px" value="'+esc(d.subject.centralPct||0)+'"></label>'
+   +'<label>คะแนนเต็มข้อสอบกลาง <input id="stCm" type="number" style="width:70px" value="'+esc(d.subject.centralMax||100)+'"></label>'
+   +'<button id="stSave">บันทึกการตั้งค่า</button></div><div class="mute">ถ้าใช้ข้อสอบกลาง ให้เพิ่มช่องประเภท "ข้อสอบกลาง" แล้วกรอกคะแนนข้อสอบกลางของนักเรียน ระบบจะรวมกับข้อสอบปลายปีของโรงเรียนตามสัดส่วน</div></fieldset>'
    +'<table id="asT"><thead><tr><th>ชื่อช่อง</th><th>ประเภท</th><th>คะแนนเต็ม</th><th></th></tr></thead><tbody></tbody></table>'
-   +'<p class="row"><button id="aAddD">+ ระหว่างเรียน</button><button id="aAddF">+ ปลายปี</button><button class="pri" id="aSave">บันทึกช่องคะแนน</button></p>'
+   +'<p class="row"><button id="aAddD">+ ระหว่างเรียน</button><button id="aAddF">+ ปลายปี</button><button id="aAddC">+ ข้อสอบกลาง</button><button class="pri" id="aSave">บันทึกช่องคะแนน</button></p>'
    +'<div class="msg">คำเตือน: การลบช่องจะลบคะแนนของช่องนั้นด้วย</div>';
   $('tab').innerHTML=h;
   function addRow(a){
     var tr=document.createElement('tr'); tr.dataset.id=a.id||'';
-    tr.innerHTML='<td><input class="n" value="'+esc(a.name)+'"></td><td><select class="t"><option value="during"'+(a.type!=='final'?' selected':'')+'>ระหว่างเรียน</option><option value="final"'+(a.type==='final'?' selected':'')+'>ปลายปี</option></select></td><td><input class="m" style="width:80px" value="'+esc(a.max)+'"></td><td><button class="dan">ลบ</button></td>';
+    tr.innerHTML='<td><input class="n" value="'+esc(a.name)+'"></td><td><select class="t"><option value="during"'+(a.type!=='final'?' selected':'')+'>ระหว่างเรียน</option><option value="final"'+(a.type==='final'?' selected':'')+'>ปลายปี</option><option value="central"'+(a.type==='central'?' selected':'')+'>ข้อสอบกลาง</option></select></td><td><input class="m" style="width:80px" value="'+esc(a.max)+'"></td><td><button class="dan">ลบ</button></td>';
     tr.querySelector('button').onclick=function(){tr.remove();};
     $('asT').tBodies[0].appendChild(tr);
   }
   d.assessments.forEach(addRow);
   $('aAddD').onclick=function(){ addRow({name:'ตัวชี้วัด '+($('asT').tBodies[0].rows.length+1),type:'during',max:10}); };
+  $('aAddC').onclick=function(){ addRow({name:'ข้อสอบกลาง',type:'central',max:Number(d.subject.centralMax)||100}); };
+  $('stSave').onclick=function(){
+    api('saveSubjectSettings',S.token,d.subject.key,{ratioDuring:$('stRd').value,ratioFinal:$('stRf').value,centralPct:$('stCp').value,centralMax:$('stCm').value}).then(function(r){
+      d.subject.ratioDuring=r.ratioDuring; d.subject.ratioFinal=r.ratioFinal; d.subject.centralPct=r.centralPct; d.subject.centralMax=r.centralMax;
+      note($('sMsg'),'บันทึกการตั้งค่าแล้ว'); }).catch(function(e){ note($('sMsg'),e.message,true); });
+  };
   $('aAddF').onclick=function(){ addRow({name:'สอบปลายปี',type:'final',max:100}); };
   $('aSave').onclick=function(){
     var list=[].map.call($('asT').tBodies[0].rows,function(tr){ return {id:tr.dataset.id,name:tr.querySelector('.n').value,type:tr.querySelector('.t').value,max:tr.querySelector('.m').value}; });
@@ -970,39 +982,81 @@ function classCoverHtml(r){
 
 /* ================= หน้าวิชา: กรอกคะแนน (รองรับ ผ/มผ, ร/มส, เวลาเรียน) ================= */
 function isPass(){ return S.cur.subject.kind === 'pass'; }
+function aTypeLabel(a){ return a.type==='final'?'ปลายปี':(a.type==='central'?'ข้อสอบกลาง':'ระหว่างเรียน'); }
 function tabScores(){
   var d = S.cur, pass = isPass();
   if(!pass && !d.assessments.length){ $('tab').innerHTML = '<p class="mute">ยังไม่มีช่องคะแนน — ไปที่แท็บ "ตั้งช่องคะแนน" ก่อน</p>'; return; }
   if(!S.stDirty) S.stDirty = {};
-  var h = '<div class="sc"><table><thead><tr><th class="sticky">ที่</th><th class="l sticky" style="left:42px">ชื่อ-สกุล</th>';
-  if(pass) h += '<th>ผลการประเมิน</th>';
-  else d.assessments.forEach(function(a){ h += '<th>'+esc(a.name)+'<div class="mute">'+(a.type==='final'?'ปลายปี':'ระหว่างเรียน')+' · เต็ม '+esc(a.max)+'</div></th>'; });
-  h += (pass ? '' : '<th>ระหว่างเรียน</th><th>ปลายปี</th><th>รวม</th>') + '<th>เกรด</th><th title="เวลาเรียนร้อยละ จากแท็บเวลาเรียนของครูประจำชั้น">เวลาเรียน %</th><th>ร / มส</th></tr></thead><tbody>';
+  var cols = pass ? [] : d.assessments;
+  var h = '<style>.xl td,.xl th{border:1px solid #9aa;padding:0}.xl th{background:#dfe9f5;padding:3px 5px;font-size:13px}.xl input.xc{width:100%;min-width:52px;border:0;padding:5px 4px;text-align:center;background:#fff;box-sizing:border-box;border-radius:0}.xl input.xc:focus{outline:2px solid #1a73e8;outline-offset:-2px}.xl input.xc.dirty{background:#fff8c4}.xl input.bad{background:#ffd6d6}.xl td.calc{background:#fde4ec;text-align:center;padding:3px 6px}.xl tr.tot td{background:#eef3e6;font-weight:600;text-align:center;padding:3px 6px}.xl tr.full th{background:#fff2c9}</style>';
+  h += '<div class="sc"><table class="xl"><thead><tr><th class="sticky" rowspan="2">ที่</th><th class="l sticky" style="left:42px" rowspan="2">ชื่อ-สกุล</th>';
+  if(pass) h += '<th rowspan="2">ผลการประเมิน</th>';
+  else cols.forEach(function(a){ h += '<th>'+esc(a.name)+'<div class="mute" style="font-weight:400">'+aTypeLabel(a)+'</div></th>'; });
+  h += (pass ? '' : '<th rowspan="2">ระหว่างเรียน</th><th rowspan="2">ปลายปี</th><th rowspan="2">รวม</th>') + '<th rowspan="2">เกรด</th><th rowspan="2" title="เวลาเรียนร้อยละ จากแท็บเวลาเรียนของครูประจำชั้น">เวลาเรียน %</th><th rowspan="2">ร / มส</th></tr>';
+  if(!pass){ h += '<tr class="full">'; cols.forEach(function(a){ h += '<th>เต็ม '+esc(a.max)+'</th>'; }); h += '</tr>'; }
+  h += '</thead><tbody>';
   d.students.forEach(function(st){
     h += '<tr data-s="'+esc(st.studentId)+'"'+(st.moved?' style="opacity:.55"':'')+'><td class="sticky">'+esc(st.no)+'</td><td class="l sticky" style="left:42px;white-space:nowrap">'+esc(st.name)+(st.moved?' ('+esc(st.moved)+')':'')+'</td>';
     if(pass){ var pv = d.scores[st.studentId+'|_pf']; h += '<td><select class="pf" data-k="'+esc(st.studentId)+'|_pf"><option value=""></option><option value="1"'+(pv===1?' selected':'')+'>ผ่าน (ผ)</option><option value="0"'+(pv===0?' selected':'')+'>ไม่ผ่าน (มผ)</option></select></td>'; }
-    else d.assessments.forEach(function(a){
+    else cols.forEach(function(a){
       var k = st.studentId+'|'+a.id, v = d.scores[k];
-      h += '<td><input data-k="'+esc(k)+'" data-a="'+esc(a.id)+'" data-max="'+esc(a.max)+'" inputmode="decimal" value="'+(v===undefined?'':esc(v))+'"></td>';
+      h += '<td><input class="xc" data-k="'+esc(k)+'" data-a="'+esc(a.id)+'" data-max="'+esc(a.max)+'" inputmode="decimal" value="'+(v===undefined?'':esc(v))+'"></td>';
     });
     var ap = d.attPct ? d.attPct[st.studentId] : '', low = ap !== '' && ap !== undefined && ap < (d.minAtt||80);
-    h += (pass ? '' : '<td class="c-d"></td><td class="c-f"></td><td class="c-t"><b></b></td>') + '<td class="c-g"><b></b></td><td'+(low?' style="background:#ffe0e0;color:#c62828;font-weight:600" title="เวลาเรียนต่ำกว่าเกณฑ์ พิจารณา มส."':'')+'>'+(ap===''||ap===undefined?'':ap)+'</td>'
+    h += (pass ? '' : '<td class="calc c-d"></td><td class="calc c-f"></td><td class="calc c-t"><b></b></td>') + '<td class="calc c-g"><b></b></td><td class="calc"'+(low?' style="background:#ffe0e0;color:#c62828;font-weight:600" title="เวลาเรียนต่ำกว่าเกณฑ์ พิจารณา มส."':'')+'>'+(ap===''||ap===undefined?'':ap)+'</td>'
       + '<td><select class="st" data-s="'+esc(st.studentId)+'"><option value="">—</option><option value="ร"'+(d.status[st.studentId]==='ร'?' selected':'')+'>ร</option><option value="มส"'+(d.status[st.studentId]==='มส'?' selected':'')+'>มส</option></select></td></tr>';
   });
-  $('tab').innerHTML = h + '</tbody></table></div><p class="mute">กรอกแล้วกด Enter ไปช่องถัดไป · ช่องสีเหลืองคือยังไม่ได้บันทึก · เว้นว่าง = ยังไม่มีคะแนน · "ร" = รอการตัดสิน/ยังไม่ครบ · "มส" = ไม่มีสิทธิ์เข้าสอบ/เวลาเรียนไม่ถึงเกณฑ์ (ช่องเวลาเรียนสีแดง = ต่ำกว่า '+(d.minAtt||80)+'%) · ผู้ที่ติดสถานะ ร/มส จะไม่คิดเกรด</p>';
-  var inputs = [].slice.call(document.querySelectorAll('.sc input'));
-  inputs.forEach(function(inp,i){
-    inp.oninput = function(){
-      var v = inp.value.trim(), mx = Number(inp.dataset.max), bad = v!=='' && (isNaN(Number(v))||Number(v)<0||Number(v)>mx);
-      inp.classList.toggle('bad', bad);
-      if(!bad){ if(v==='') delete S.cur.scores[inp.dataset.k]; else S.cur.scores[inp.dataset.k] = Number(v);
-        S.dirty[inp.dataset.k] = true; inp.classList.add('dirty'); refreshRow(inp.closest('tr')); }
+  if(!pass){
+    ['รวม','เฉลี่ย','เฉลี่ย %'].forEach(function(lbl,ri){
+      h += '<tr class="tot" data-t="'+ri+'"><td colspan="2" class="sticky" style="text-align:right">'+lbl+'</td>';
+      cols.forEach(function(a){ h += '<td data-a="'+esc(a.id)+'"></td>'; });
+      h += '<td colspan="6"></td></tr>';
+    });
+  }
+  $('tab').innerHTML = h + '</tbody></table></div><p class="mute">ใช้งานเหมือน Excel: ลูกศร/Enter เลื่อนช่อง · วางข้อมูลจาก Excel/Google Sheets ได้ (คัดลอกทั้งบล็อกแล้ววางที่ช่องแรก) · ช่องสีชมพู = คำนวณอัตโนมัติ · ช่องสีเหลือง = ยังไม่บันทึก · "ร" = รอการตัดสิน · "มส" = ไม่มีสิทธิ์เข้าสอบ (ช่องเวลาเรียนสีแดง = ต่ำกว่า '+(d.minAtt||80)+'%) · ผู้ที่ติดสถานะ ร/มส จะไม่คิดเกรด</p>';
+  var grid = [].map.call(document.querySelectorAll('.xl tbody tr[data-s]'), function(tr){ return [].slice.call(tr.querySelectorAll('input.xc')); });
+  function setVal(inp, v){
+    v = String(v).trim().replace(/,/g,'');
+    var mx = Number(inp.dataset.max), bad = v!=='' && (isNaN(Number(v))||Number(v)<0||Number(v)>mx);
+    inp.value = v; inp.classList.toggle('bad', bad);
+    if(!bad){ if(v==='') delete S.cur.scores[inp.dataset.k]; else S.cur.scores[inp.dataset.k] = Number(v);
+      S.dirty[inp.dataset.k] = true; inp.classList.add('dirty'); refreshRow(inp.closest('tr')); }
+  }
+  grid.forEach(function(row,ri){ row.forEach(function(inp,ci){
+    inp.oninput = function(){ setVal(inp, inp.value); updTot(); };
+    inp.onfocus = function(){ inp.select(); };
+    inp.onkeydown = function(e){
+      var t = null;
+      if(e.key==='Enter'||e.key==='ArrowDown') t = grid[ri+1] && grid[ri+1][ci];
+      else if(e.key==='ArrowUp') t = grid[ri-1] && grid[ri-1][ci];
+      else if(e.key==='ArrowRight' && (inp.selectionStart===inp.value.length||inp.selectionStart===0&&inp.selectionEnd===inp.value.length)) t = row[ci+1];
+      else if(e.key==='ArrowLeft' && (inp.selectionStart===0)) t = row[ci-1];
+      else return;
+      e.preventDefault(); if(t){ t.focus(); t.select(); }
     };
-    inp.onkeydown = function(e){ if(e.key==='Enter'){ e.preventDefault(); var n = inputs[i+1]; if(n){ n.focus(); n.select(); } } };
-  });
+    inp.onpaste = function(e){
+      var txt = (e.clipboardData||window.clipboardData).getData('text');
+      if(!/[\t\n]/.test(txt.replace(/\r?\n$/,''))) return;
+      e.preventDefault();
+      txt.replace(/\r?\n$/,'').split(/\r?\n/).forEach(function(line,i){
+        line.split('\t').forEach(function(c,j){ var t = grid[ri+i] && grid[ri+i][ci+j]; if(t) setVal(t, c); });
+      });
+      updTot();
+    };
+  }); });
   [].forEach.call(document.querySelectorAll('select.pf'), function(sel){ sel.onchange = function(){ if(sel.value==='') delete S.cur.scores[sel.dataset.k]; else S.cur.scores[sel.dataset.k] = Number(sel.value); S.dirty[sel.dataset.k] = true; sel.classList.add('dirty'); refreshRow(sel.closest('tr')); }; });
   [].forEach.call(document.querySelectorAll('select.st'), function(sel){ sel.onchange = function(){ S.cur.status[sel.dataset.s] = sel.value; if(sel.value==='') delete S.cur.status[sel.dataset.s]; S.stDirty[sel.dataset.s] = true; sel.classList.add('dirty'); refreshRow(sel.closest('tr')); }; });
-  [].forEach.call(document.querySelectorAll('.sc tbody tr'), refreshRow);
+  [].forEach.call(document.querySelectorAll('.xl tbody tr[data-s]'), refreshRow);
+  function updTot(){
+    if(pass) return;
+    cols.forEach(function(a){
+      var sum = 0, n = 0;
+      S.cur.students.forEach(function(st){ if(st.moved) return; var v = S.cur.scores[st.studentId+'|'+a.id]; if(v!==undefined&&v!==''){ sum += Number(v); n++; } });
+      var c = document.querySelectorAll('.xl tr.tot td[data-a="'+a.id+'"]');
+      if(c.length===3){ c[0].textContent = n?r2(sum):''; c[1].textContent = n?r2(sum/n):''; c[2].textContent = n&&Number(a.max)?r2(sum/n/Number(a.max)*100):''; }
+    });
+  }
+  updTot();
 }
 function resultOfStudent(stu, d){
   var stt = d.status && d.status[stu.studentId];
@@ -1198,7 +1252,7 @@ function bookClassPages(b, secs){
     var h = bkHead('เอกสารแนบท้าย: รายวิชาและตัวชี้วัด', b) + '<table style="width:100%"><thead><tr><th>รหัสวิชา</th><th>รายวิชา</th><th>กลุ่มสาระ</th><th>ภาค</th><th>ชั่วโมง</th><th>ครูผู้สอน</th></tr></thead><tbody>'
       + b.detail.map(function(x){ var s = x.subject; return '<tr><td>'+esc(s.code)+'</td><td style="text-align:left">'+esc(s.name)+'</td><td style="text-align:left">'+esc(s.group||'')+'</td><td>'+esc(s.term)+'</td><td>'+esc(s.hours||'')+'</td><td style="text-align:left">'+esc(s.teacher||'')+'</td></tr>'; }).join('') + '</tbody></table><br>';
     b.detail.forEach(function(x){ var s = x.subject; h += '<p style="margin:4px 0"><b>'+esc(s.code)+' '+esc(s.name)+'</b>'+(s.kind==='pass'?' — ประเมินผ่าน/ไม่ผ่าน':' (ระหว่างเรียน:ปลายปี '+esc(s.ratioDuring)+':'+esc(s.ratioFinal)+')')+'<br>'
-      + (x.assessments.length ? x.assessments.map(function(a,i){ return (i+1)+'. '+esc(a.name)+' ['+(a.type==='final'?'ปลายปี':'ระหว่างเรียน')+', เต็ม '+esc(a.max)+']'; }).join(' · ') : '<span class="mute">ยังไม่ได้ตั้งช่องคะแนน</span>')+'</p>'; });
+      + (x.assessments.length ? x.assessments.map(function(a,i){ return (i+1)+'. '+esc(a.name)+' ['+aTypeLabel(a)+', เต็ม '+esc(a.max)+']'; }).join(' · ') : '<span class="mute">ยังไม่ได้ตั้งช่องคะแนน</span>')+'</p>'; });
     pgs.push({o:'port', h: h});
   }
   if(has(12)) pgs.push({o:'port', h: bkBack(b)});
