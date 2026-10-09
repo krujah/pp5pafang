@@ -510,8 +510,8 @@ function aPins(){
 }
 function aCfg(){
   var c=S.adm.config;
-  $('atab').innerHTML='<div class="grid2"><div><label>ชื่อโรงเรียน</label><input id="cS" value="'+esc(c.schoolName)+'"></div><div><label>ปีการศึกษา</label><input id="cY" value="'+esc(c.year)+'"></div><div><label>ภาคเรียน</label><input id="cT" value="'+esc(c.term)+'"></div></div><p><button class="pri" id="cGo">บันทึก</button></p>';
-  $('cGo').onclick=function(){ api('adminSaveConfig',S.token,{schoolName:$('cS').value,year:$('cY').value,term:$('cT').value}).then(function(){return aDone('บันทึกแล้ว');}).catch(aErr); };
+  $('atab').innerHTML='<div class="grid2"><div><label>ชื่อโรงเรียน</label><input id="cS" value="'+esc(c.schoolName)+'"></div><div><label>ปีการศึกษา</label><input id="cY" value="'+esc(c.year)+'"></div><div><label>ภาคเรียน</label><input id="cT" value="'+esc(c.term)+'"></div><div><label>ชื่อผู้อำนวยการ (แสดงในปก)</label><input id="cDir" value="'+esc(c.directorName||'')+'"></div><div><label>ชื่อหัวหน้างานวิชาการ</label><input id="cAc" value="'+esc(c.academicHead||'')+'"></div></div><p><button class="pri" id="cGo">บันทึก</button></p>';
+  $('cGo').onclick=function(){ api('adminSaveConfig',S.token,{schoolName:$('cS').value,year:$('cY').value,term:$('cT').value,directorName:$('cDir').value,academicHead:$('cAc').value}).then(function(){return aDone('บันทึกแล้ว');}).catch(aErr); };
 }
 
 /*@@MODULES_BEGIN@@*/
@@ -857,7 +857,7 @@ function rateHtml(tab, d){
 }
 
 /* ================= ข้อมูลนักเรียนเพิ่มเติม ================= */
-var INFO_COLS = [['sex','เพศ','sel:ชาย,หญิง'],['birth','วันเกิด','date'],['nationality','สัญชาติ',''],['religion','ศาสนา',''],['idCard','เลขประจำตัวประชาชน',''],['address','ที่อยู่',''],['father','ชื่อบิดา',''],['mother','ชื่อมารดา',''],['guardian','ชื่อผู้ปกครอง',''],['guardianRel','เกี่ยวข้องเป็น',''],['phone','โทรศัพท์',''],['status','สถานะ','sel:ย้าย,ลาออก'],['note','หมายเหตุ','']];
+var INFO_COLS = [['sex','เพศ','sel:ชาย,หญิง'],['birth','วันเกิด','date'],['nationality','สัญชาติ',''],['religion','ศาสนา',''],['idCard','เลขประจำตัวประชาชน',''],['address','ที่อยู่',''],['father','ชื่อบิดา',''],['mother','ชื่อมารดา',''],['guardian','ชื่อผู้ปกครอง',''],['guardianRel','เกี่ยวข้องเป็น',''],['phone','โทรศัพท์',''],['status','สถานะ (ออก)','sel:ย้าย,ลาออก'],['joined','ย้ายเข้า (วันที่/ระบุ)',''],['note','หมายเหตุ','']];
 function cInfo(){
   $('ctab').innerHTML = 'กำลังโหลด...';
   api('getStudentInfo', S.token, C.cl).then(function(d){ C.info = d; C.infoDirty = {}; drawInfo(); }).catch(cErr);
@@ -969,15 +969,17 @@ function pp6Html(r, onlySid){
   return out;
 }
 function classCoverHtml(r){
-  var act = r.students.filter(function(s){ return !s.status; }), c = sexCount(act, function(){return true;});
-  var h = '<div style="text-align:center;font-size:16pt"><b>แบบรายงานผลการพัฒนาคุณภาพผู้เรียน (ปพ.5)</b><br>'+esc(r.school)+'<br>ชั้น'+esc(r.classLevel)+' ปีการศึกษา '+esc(r.year)+'</div><br>'
-    + '<p>จำนวนนักเรียน ชาย <b>'+c.m+'</b> คน · หญิง <b>'+c.w+'</b> คน · รวม <b>'+act.length+'</b> คน'+(r.students.length-act.length?' (ย้าย/ลาออก '+(r.students.length-act.length)+' คน)':'')+'</p>'
-    + '<p>ครูประจำชั้น: '+esc((r.teachers||[]).join(', ')||'............................')+'</p>'
+  var inn = r.students.filter(function(s){ return !s.status; }), out = r.students.filter(function(s){ return !!s.status; });
+  var joined = inn.filter(function(s){ return s.joined; });
+  var k = { total: inn.length, male: sexCount(inn,function(){return true;}).m, female: sexCount(inn,function(){return true;}).w, moved: out.length,
+            outM: sexCount(out,function(){return true;}).m, outF: sexCount(out,function(){return true;}).w, inM: sexCount(joined,function(){return true;}).m, inF: sexCount(joined,function(){return true;}).w };
+  var nm = r.names || {director:'............................', academic:'............................'};
+  return '<div style="text-align:center;font-size:15pt;line-height:1.5"><b>แบบรายงานผลการพัฒนาคุณภาพผู้เรียน (ปพ.5)</b><br>'+esc(r.school)+'<br>สำนักงานเขตพื้นที่การศึกษาประถมศึกษาสตูล<br>ชั้น'+esc(r.classLevel)+' ปีการศึกษา '+esc(r.year)+'</div><br>'
+    + '<p>ครูประจำชั้น: <b>'+esc((r.teachers||[]).join(', ')||'............................')+'</b></p>'
+    + coverCounts(k)
     + '<table style="width:100%"><thead><tr><th>ที่</th><th>รหัสวิชา</th><th>รายวิชา</th><th>ภาคเรียน</th><th>ชั่วโมง</th><th>ครูผู้สอน</th><th>ลายมือชื่อ</th></tr></thead><tbody>'
-    + r.subjects.map(function(s,i){ return '<tr><td>'+(i+1)+'</td><td>'+esc(s.code)+'</td><td style="text-align:left">'+esc(s.name)+'</td><td>'+esc(s.term)+'</td><td>'+esc(s.hours||'')+'</td><td style="text-align:left">'+esc(s.teacher||'')+'</td><td></td></tr>'; }).join('') + '</tbody></table><br>'
-    + '<div style="display:flex;justify-content:space-around;margin-top:20mm"><div>ลงชื่อ.........................ครูประจำชั้น</div><div>ลงชื่อ.........................หัวหน้าฝ่ายวิชาการ</div></div><br>'
-    + '<div style="text-align:center;margin-top:12mm">เรียน ผู้อำนวยการโรงเรียน เพื่อโปรดพิจารณาอนุมัติผลการเรียน<br><br>( ✓ ) อนุมัติ &nbsp;&nbsp; (&nbsp;&nbsp;&nbsp;) ไม่อนุมัติ<br><br>ลงชื่อ.........................ผู้อำนวยการ<br>วันที่........./........./.........</div>';
-  return h;
+    + r.subjects.map(function(s,i){ return '<tr><td>'+(i+1)+'</td><td>'+esc(s.code)+'</td><td style="text-align:left">'+esc(s.name)+'</td><td>'+esc(s.term)+'</td><td>'+esc(s.hours||'')+'</td><td style="text-align:left">'+esc(s.teacher||'')+'</td><td></td></tr>'; }).join('') + '</tbody></table>'
+    + coverSig(nm, (r.teachers||[])[0]||'............................').replace('ครูประจำวิชา','ครูประจำชั้น');
 }
 
 /* ================= หน้าวิชา: กรอกคะแนน (รองรับ ผ/มผ, ร/มส, เวลาเรียน) ================= */
@@ -1117,18 +1119,32 @@ function pp5Html(d){
   h += '</tbody></table><br><div style="display:flex;justify-content:space-around"><div>ลงชื่อ.....................................ครูประจำวิชา</div><div>ลงชื่อ.....................................หัวหน้าฝ่ายวิชาการ</div><div>ลงชื่อ.....................................ผู้อำนวยการ</div></div>';
   return h;
 }
+function coverSig(nm, who){
+  return '<div style="margin-top:10mm;display:flex;justify-content:space-around;text-align:center"><div>ลงชื่อ.............................................<br>('+esc(who)+')<br>ครูประจำวิชา</div><div>ลงชื่อ.............................................<br>('+esc(nm.academic)+')<br>หัวหน้างานวิชาการ</div></div>'
+   + '<div style="margin-top:10mm;text-align:center">เรียน ผู้อำนวยการโรงเรียน เพื่อโปรดพิจารณาอนุมัติผลการเรียน<br><br>( &nbsp; ) อนุมัติ &nbsp;&nbsp;&nbsp; ( &nbsp; ) ไม่อนุมัติ<br><br>ลงชื่อ.............................................<br>('+esc(nm.director)+')<br>ผู้อำนวยการโรงเรียน<br>วันที่........../........../..........</div>';
+}
+function coverCounts(k){
+  var t = k.total, M = k.male, F = k.female;
+  var bt = t - (k.inM + k.inF) + k.moved, bm = M - k.inM + k.outM, bf = F - k.inF + k.outF;
+  var row = function(l,m,f){ return '<tr><td>'+l+'</td><td>'+m+'</td><td>'+f+'</td><td>'+(m+f)+'</td></tr>'; };
+  return '<table style="width:70%;margin:6px auto"><thead><tr><th>จำนวนนักเรียน</th><th>ชาย</th><th>หญิง</th><th>รวม</th></tr></thead><tbody>'
+    + row('ต้นปีการศึกษา',bm,bf) + row('ย้ายออก/ลาออก',k.outM,k.outF) + row('ย้ายเข้า',k.inM,k.inF) + row('สิ้นปีการศึกษา',M,F) + '</tbody></table>';
+}
 function printCover(){
   if(Object.keys(S.dirty).length || Object.keys(S.stDirty||{}).length){ if(!confirm('มีข้อมูลที่ยังไม่ได้บันทึก (ปกจะใช้ข้อมูลที่บันทึกแล้ว) พิมพ์ต่อหรือไม่?')) return; }
   api('getCover', S.token, S.cur.subject.key).then(function(c){
     var s = c.subject, pass = s.kind === 'pass', cols = pass ? ['ผ','มผ','ร','มส'] : ['4','3.5','3','2.5','2','1.5','1','0','ร','มส'];
-    var h = '<div style="text-align:center;font-size:16pt"><b>ปก แบบรายงานผลการพัฒนาคุณภาพผู้เรียนรายวิชา (ปพ.5)</b><br>'+esc(c.school)+'<br>รายวิชา '+esc(s.code)+' '+esc(s.name)+'<br>ชั้น'+esc(s.classLevel)+' ภาคเรียนที่ '+esc(s.term)+' ปีการศึกษา '+esc(s.year)+'</div><br>'
-      + '<p>กลุ่มสาระการเรียนรู้: '+esc(s.group||'-')+' · เวลาเรียน '+esc(s.hours||'-')+' ชั่วโมง/ปี · ครูผู้สอน: '+esc(c.teachers)+'</p>'
-      + '<p>จำนวนนักเรียน ชาย <b>'+c.counts.male+'</b> · หญิง <b>'+c.counts.female+'</b> · รวม <b>'+c.counts.total+'</b> คน'+(c.counts.moved?' (ย้าย/ลาออก '+c.counts.moved+' คน ไม่นับ)':'')+'</p>'
+    var h = '<div style="text-align:center;font-size:15pt;line-height:1.5"><b>แบบรายงานผลการพัฒนาคุณภาพผู้เรียนรายวิชา (ปพ.5)</b><br>'+esc(c.school)+'<br>สำนักงานเขตพื้นที่การศึกษาประถมศึกษาสตูล</div>'
+      + '<table style="width:100%;margin:8px 0;border:0"><tbody><tr><td style="border:0;text-align:left">รายวิชา <b>'+esc(s.name)+'</b></td><td style="border:0;text-align:left">รหัสวิชา <b>'+esc(s.code)+'</b></td></tr>'
+      + '<tr><td style="border:0;text-align:left">กลุ่มสาระการเรียนรู้ <b>'+esc(s.group||'-')+'</b></td><td style="border:0;text-align:left">ชั้น <b>'+esc(s.classLevel)+'</b> ภาคเรียนที่ <b>'+esc(s.term)+'</b> ปีการศึกษา <b>'+esc(s.year)+'</b></td></tr>'
+      + '<tr><td style="border:0;text-align:left">เวลาเรียน <b>'+esc(s.hours||'-')+'</b> ชั่วโมง/ปี</td><td style="border:0;text-align:left">ครูผู้สอน <b>'+esc(c.teachers)+'</b></td></tr>'
+      + (pass?'':'<tr><td style="border:0;text-align:left" colspan="2">สัดส่วนคะแนน ระหว่างเรียน : ปลายปี = <b>'+esc(s.ratioDuring)+' : '+esc(s.ratioFinal)+'</b>'+(Number(s.centralPct)>0?' (ข้อสอบกลาง '+esc(s.centralPct)+'% ของคะแนนปลายปี)':'')+'</td></tr>')
+      + '</tbody></table>'
+      + coverCounts(c.counts)
       + '<table style="width:100%"><thead><tr><th>ผลการเรียน</th>'+cols.map(function(g){return '<th>'+g+'</th>';}).join('')+'<th>รวม</th></tr></thead><tbody>'
       + [['ชาย',c.distM],['หญิง',c.distF],['รวม',c.dist]].map(function(r){ var t=0; return '<tr><td>'+r[0]+'</td>'+cols.map(function(g){ t+=r[1][g]||0; return '<td>'+(r[1][g]||0)+'</td>'; }).join('')+'<td>'+t+'</td></tr>'; }).join('') + '</tbody></table>'
-      + '<p>ผ่านเกณฑ์ <b>'+c.pass+'</b> คน · ไม่ผ่าน <b>'+c.fail+'</b> คน'+(pass?'':' · คะแนนเฉลี่ยร้อยละ <b>'+gShow(c.avg)+'</b>')+' · เวลาเรียนต่ำกว่า '+S.cur.minAtt+'% จำนวน <b>'+c.lowAtt+'</b> คน</p><br>'
-      + '<div style="display:flex;justify-content:space-around;margin-top:15mm"><div>ลงชื่อ.........................ครูประจำวิชา</div><div>ลงชื่อ.........................หัวหน้าฝ่ายวิชาการ</div></div>'
-      + '<div style="text-align:center;margin-top:12mm">เรียน ผู้อำนวยการโรงเรียน เพื่อโปรดพิจารณาอนุมัติผลการเรียน<br><br>( ✓ ) อนุมัติ &nbsp;&nbsp; (&nbsp;&nbsp;&nbsp;) ไม่อนุมัติ<br><br>ลงชื่อ.........................ผู้อำนวยการ<br>วันที่........./........./.........</div>';
+      + '<p>ผ่านเกณฑ์ <b>'+c.pass+'</b> คน · ไม่ผ่าน <b>'+c.fail+'</b> คน'+(pass?'':' · คะแนนเฉลี่ยร้อยละ <b>'+gShow(c.avg)+'</b>')+' · เวลาเรียนต่ำกว่า '+S.cur.minAtt+'% จำนวน <b>'+c.lowAtt+'</b> คน</p>'
+      + coverSig(c.names, c.teachers);
     doPrint(h, 'portrait');
   }).catch(function(e){ note($('sMsg'), e.message, true); });
 }
