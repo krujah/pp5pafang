@@ -46,6 +46,17 @@ th.sticky:first-child,td.sticky:first-child{min-width:42px}
 .bkpg{border:1px solid var(--line);background:#fff;padding:12px;margin:10px 0;overflow:auto;font-size:14px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
 .bkland{max-width:1000px}.bkport{max-width:720px}
 td.ac:hover{background:#e8efff}
+
+.card.wb{background:#ffe6f8;border-color:#e9a8d6}
+.card.wb table{border-collapse:collapse}
+.card.wb td,.card.wb th{border:1px solid #8a8a8a}
+.card.wb td{background:#fff}.card.wb th{background:#f7d0ec}
+.card.wb td.sticky,.card.wb th.sticky{background:#f7d0ec}
+.card.wb .tabs button.on{background:#107c41;color:#fff;border-color:#107c41}
+.wbbar{position:sticky;bottom:0;display:flex;gap:2px;overflow-x:auto;background:#e6e6e6;border-top:1px solid #9a9a9a;padding:4px 6px 0;margin:0 -2px;z-index:8}
+.wbbar button{border:1px solid #b8b8b8;border-top:0;border-radius:0 0 6px 6px;background:#f4f4f4;font-size:13px;padding:5px 12px;white-space:nowrap;color:#333}
+.wbbar button.on{background:#fff;color:#107c41;font-weight:700;border-bottom:3px solid #107c41}
+td.ac.sel{outline:2px solid #1a73e8;outline-offset:-2px}
 td.ac{user-select:none;min-width:26px}
 select.ri,select.colfill,select.rowfill,select.pf,select.st{padding:3px 4px;font-size:14px}
 details summary{cursor:pointer}
@@ -222,7 +233,7 @@ function renderSubject(){
    +'<button id="bSave" class="pri">บันทึกคะแนน</button><button id="bPrint">พิมพ์ ปพ.5</button><button id="bCover">พิมพ์ปก ปพ.5</button><button id="bRel"></button></div>'
    +'<div id="sMsg"></div>'
    +'<div class="tabs"><button data-t="scores">กรอกคะแนน</button><button data-t="setup">ตั้งช่องคะแนน</button><button data-t="sum">สรุปเกรด</button></div><div id="tab"></div></div>';
-  $('main').innerHTML=h;
+  $('main').innerHTML=h.replace('<div class="card">','<div class="card wb">'); wbMount('subj', s.key);
   [].forEach.call(document.querySelectorAll('.tabs button'),function(b){ b.classList.toggle('on',b.dataset.t===S.tab); b.onclick=function(){S.tab=b.dataset.t;renderSubject();}; });
   $('bSave').onclick=saveScores;
   $('bPrint').onclick=printPP5;
@@ -551,6 +562,26 @@ function classCards(){
 function bindClassCards(){ [].forEach.call(document.querySelectorAll('.ccls'), function(el){ el.onclick=function(){ C={tab:'att'}; openClass(el.dataset.c); }; }); }
 
 var CTABS = [['att','เวลาเรียน'],['hw','น้ำหนัก-ส่วนสูง'],['nut','ผลโภชนาการ'],['trait','คุณลักษณะ/อ่าน คิด เขียน'],['value','ค่านิยม/สมรรถนะ'],['act','กิจกรรมพัฒนาผู้เรียน'],['info','ข้อมูลนักเรียน'],['rep','รายงาน/ปพ.6'],['book','พิมพ์เล่ม ปพ.5']];
+/* ---------- แถบชีตด้านล่าง เหมือนแท็บชีตของไฟล์ Excel ---------- */
+function wbMount(kind, active){
+  var b = S.boot || {}, cl = kind==='cls' ? C.cl : (S.cur && S.cur.subject.classLevel);
+  var mine = ((b.myClasses||[]).indexOf(cl) >= 0) || (S.user && S.user.role==='admin') || (b.user && b.user.role==='admin');
+  var tabs = [['home','🏠 สารบัญ','h']];
+  if(mine) CTABS.forEach(function(t){ tabs.push([t[0], t[1], 'c']); });
+  (b.subjects||[]).filter(function(s){ return s.classLevel===cl; }).forEach(function(s,i){ tabs.push([s.key, 'วิชา '+(i+1)+' '+s.name, 's']); });
+  var bar = document.createElement('div'); bar.className = 'wbbar';
+  bar.innerHTML = tabs.map(function(t){ var on = (t[2]==='c' && kind==='cls' && active===t[0]) || (t[2]==='s' && kind==='subj' && active===t[0]);
+    return '<button data-k="'+esc(t[0])+'" data-g="'+t[2]+'"'+(on?' class="on"':'')+'>'+esc(t[1])+'</button>'; }).join('');
+  $('main').appendChild(bar);
+  [].forEach.call(bar.querySelectorAll('button'), function(x){ x.onclick = function(){
+    var dirty = (kind==='cls' ? classDirty() : (Object.keys(S.dirty||{}).length || Object.keys(S.stDirty||{}).length));
+    if(dirty && !confirm('มีข้อมูลที่ยังไม่ได้บันทึก ออกจากชีตนี้หรือไม่?')) return;
+    if(x.dataset.g==='h') home();
+    else if(x.dataset.g==='s') openSubject(x.dataset.k);
+    else if(kind==='cls'){ C.tab = x.dataset.k; renderClass(); }
+    else { C = {tab: x.dataset.k}; openClass(cl); }
+  }; });
+}
 function openClass(cl){
   $('main').innerHTML = '<div class="card">กำลังโหลด...</div>';
   api('getClassMeta', S.token, cl).then(function(m){ var t = C.tab || 'att'; C = {cl: cl, meta: m, tab: t}; renderClass(); })
@@ -559,19 +590,14 @@ function openClass(cl){
 function renderClass(){
   var m = C.meta;
   var h = '<div class="card"><div class="row"><div style="flex:1"><h2 style="margin:0">ห้องประจำชั้น '+esc(C.cl)+'</h2><div class="mute">ปีการศึกษา '+esc(m.year)+' · ครูประจำชั้น: '+(m.teachers.length?esc(m.teachers.join(', ')):'ยังไม่ได้กำหนด')+'</div></div>'
-    + '<button id="cRel"></button></div><div id="cMsg"></div><div class="tabs">'
-    + CTABS.map(function(t){ return '<button data-t="'+t[0]+'"'+(C.tab===t[0]?' class="on"':'')+'>'+t[1]+'</button>'; }).join('')
-    + '</div><div id="ctab"></div></div>';
-  $('main').innerHTML = h;
+    + '<button id="cRel"></button></div><div id="cMsg"></div><div id="ctab"></div></div>';
+  $('main').innerHTML = h.replace('<div class="card">','<div class="card wb">'); wbMount('cls', C.tab);
   var rel = function(){ $('cRel').textContent = m.released ? 'ผู้ปกครองเห็นข้อมูลชั้นแล้ว (กดเพื่อปิด)' : 'เปิดให้ผู้ปกครองดูข้อมูลชั้น'; $('cRel').className = m.released ? 'pri' : ''; };
   rel();
   $('cRel').onclick = function(){
     if(!m.released && !confirm('เปิดให้ผู้ปกครองดู เวลาเรียน น้ำหนัก-ส่วนสูง คุณลักษณะ กิจกรรม เกรดเฉลี่ยและอันดับ ของนักเรียนแต่ละคน (เฉพาะรายวิชาที่ครูเปิดแล้ว)?')) return;
     api('setClassReleased', S.token, C.cl, !m.released).then(function(v){ m.released = v; rel(); cOk(v ? 'เปิดให้ผู้ปกครองดูแล้ว' : 'ปิดการแสดงผลแล้ว'); }).catch(cErr);
   };
-  [].forEach.call(document.querySelectorAll('.tabs button'), function(b){ b.onclick = function(){
-    if(classDirty() && !confirm('มีข้อมูลที่ยังไม่ได้บันทึก ออกจากแท็บนี้หรือไม่?')) return;
-    C.tab = b.dataset.t; renderClass(); }; });
   ({att: cAtt, hw: cHw, nut: cNut, trait: function(){ cRate('trait'); }, value: function(){ cRate('value'); }, act: function(){ cRate('act'); }, info: cInfo, rep: cRep, book: cBook})[C.tab]();
 }
 function classDirty(){
@@ -609,7 +635,9 @@ function drawAtt(){
   var m = d.months[C.mi];
   h += '<div class="tabs">' + d.months.map(function(x,i){ return '<button data-mi="'+i+'"'+(i===C.mi?' class="on"':'')+'>'+esc(x.label)+'</button>'; }).join('') + '</div>';
   h += '<div class="row" style="margin-bottom:8px"><span>เลือกสัญลักษณ์แล้วกดที่ช่อง:</span>' + BRUSH.map(function(b){ return '<button data-b="'+b+'"'+(C.brush===b&&!C.calMode?' class="pri"':'')+'>'+(b==='ล้าง'?'ล้างช่อง':b+' ('+({'ม':'มา','ป':'ป่วย','ล':'ลา','ข':'ขาด'})[b]+')')+'</button>'; }).join('')
-    + '<button id="atCal"'+(C.calMode?' class="pri"':'')+'>แก้วันหยุด/วันเปิดเรียน</button></div>'
+    + '<button id="atCal"'+(C.calMode?' class="pri"':'')+'>แก้วันหยุด/วันเปิดเรียน</button>'
+    + '<button id="atAll" title="ลงสัญลักษณ์ที่เลือกให้ทุกคน ทุกวันเรียนของเดือนนี้ในครั้งเดียว">ลงทั้งเดือน (ทุกคน)</button><button id="atPrev" title="คัดลอกจากเดือนก่อนหน้า (เฉพาะวันเรียนของเดือนนี้)">คัดลอกจากเดือนก่อน</button></div>'
+    + '<p class="mute">ลงเร็ว: กดหัวเลขวันที่ = ลงทั้งคอลัมน์ · กดชื่อนักเรียน = ลงทั้งแถว · กด "ลงทั้งเดือน" = ลงทุกคนทุกวัน แล้วแก้เฉพาะคนที่ขาด/ลา · คัดลอกจาก Excel (หรือจากแถวอื่นในตารางนี้) กด Ctrl+C แล้วคลิกช่องวันที่เริ่มต้น กด Ctrl+V ได้ (ใช้ตัวอักษร ม ป ล ข คั่นด้วยแท็บ หรือพิมพ์ติดกัน เช่น มมมปม)</p>'
     + '<p class="mute">'+(C.calMode?'โหมดแก้ปฏิทิน: กดที่หัวคอลัมน์วันที่เพื่อสลับระหว่างวันเรียน/วันหยุด (มีผลกับทั้งโรงเรียน)':'กดที่หัวคอลัมน์วันที่ = ใส่สัญลักษณ์ที่เลือกให้ทั้งห้องในวันนั้น · ช่องสีเทา = วันหยุด')+'</p>';
   h += '<div class="sc"><table id="atT"><thead><tr><th class="sticky">ที่</th><th class="l sticky" style="left:42px">ชื่อ-สกุล</th>';
   for(var dd=1; dd<=m.nd; dd++){ var hol = m.days.charAt(dd-1)!=='1'; h += '<th class="dh" data-d="'+dd+'" style="min-width:26px;cursor:pointer;padding:3px'+(hol?';background:#d9dbe3;color:#888':'')+'">'+dd+'</th>'; }
@@ -643,8 +671,35 @@ function bindAtt(){
     [].forEach.call(tr.querySelectorAll('.ac'), function(td){ var ch = mk.charAt(Number(td.dataset.d)-1); td.textContent = ch==='-'?'':ch; });
     tr.querySelector('.cm').textContent=c.m; tr.querySelector('.cp').textContent=c.p; tr.querySelector('.cl').textContent=c.l; tr.querySelector('.ck').textContent=c.k;
   }
+  var brushCh = function(){ return C.brush==='ล้าง'?'-':C.brush; };
+  function selMark(){ [].forEach.call(T.querySelectorAll('td.ac.sel'), function(x){ x.classList.remove('sel'); }); if(C.sel){ var tr = T.querySelector('tr[data-s="'+C.sel.sid+'"]'), td = tr && tr.querySelector('td.ac[data-d="'+C.sel.day+'"]'); if(td) td.classList.add('sel'); } }
+  $('atAll').onclick = function(){ if(!confirm('ลง "'+C.brush+'" ให้นักเรียนทุกคน ทุกวันเรียนของเดือนนี้ ใช่หรือไม่?')) return;
+    d.students.forEach(function(s){ for(var k=1;k<=m.nd;k++) setMark(s.studentId, k, brushCh()); }); [].forEach.call(T.tBodies[0].rows, refreshRow); };
+  $('atPrev').onclick = function(){
+    var pm = d.months[C.mi-1]; if(!pm){ cErr(new Error('ไม่มีเดือนก่อนหน้า')); return; }
+    d.students.forEach(function(s){ var src = d.marks[s.studentId+'|'+pm.ym] || ''; for(var k=1;k<=m.nd;k++){ var ch = src.charAt(k-1); if(ch && ch!=='-') setMark(s.studentId, k, ch); } });
+    [].forEach.call(T.tBodies[0].rows, refreshRow); };
+  C.attPaste = function(txt){
+    if(!C.sel) return false;
+    var rows = d.students, ri = rows.map(function(s){return s.studentId;}).indexOf(C.sel.sid); if(ri<0) return false;
+    var lines = txt.replace(/\r?\n$/,'').split(/\r?\n/);
+    lines.forEach(function(line,i){
+      var s = rows[ri+i]; if(!s) return;
+      var cells = line.indexOf('\t')>=0 ? line.split('\t') : line.replace(/\s/g,'').split('');
+      cells.forEach(function(x,j){ var day = C.sel.day + j; if(day>m.nd) return; x = String(x).trim();
+        var ch = ['ม','ป','ล','ข'].indexOf(x)>=0 ? x : (x===''||x==='-' ? '-' : null); if(ch===null) return; setMark(s.studentId, day, ch); });
+    });
+    [].forEach.call(T.tBodies[0].rows, refreshRow); return true;
+  };
+  C.attCopy = function(){
+    if(!C.sel) return '';
+    var mk = d.marks[C.sel.sid+'|'+m.ym] || ''.padEnd(31,'-'), out = [];
+    for(var k=C.sel.day;k<=m.nd;k++){ var ch = mk.charAt(k-1); out.push(ch==='-'?'':ch); } return out.join('\t');
+  };
   T.onclick = function(e){
-    var td = e.target.closest('td.ac'), th = e.target.closest('th.dh');
+    var td = e.target.closest('td.ac'), th = e.target.closest('th.dh'), nm = e.target.closest('td.l.sticky');
+    if(td){ C.sel = {sid: td.parentNode.dataset.s, day: Number(td.dataset.d)}; selMark(); }
+    if(nm && !C.calMode){ var sid = nm.parentNode.dataset.s; for(var k=1;k<=m.nd;k++) setMark(sid, k, brushCh()); refreshRow(nm.parentNode); C.sel = {sid:sid, day:1}; selMark(); return; }
     if(td && !C.calMode){ setMark(td.parentNode.dataset.s, Number(td.dataset.d), C.brush==='ล้าง'?'-':C.brush); refreshRow(td.parentNode); }
     else if(th){
       var day = Number(th.dataset.d);
@@ -656,6 +711,12 @@ function bindAtt(){
       }
     }
   };
+}
+if(!window.__attPasteBound){ window.__attPasteBound = true;
+  document.addEventListener('paste', function(e){ if(!document.getElementById('atT') || !C.attPaste) return; if(/INPUT|TEXTAREA|SELECT/.test((e.target||{}).tagName||'')) return;
+    var t = (e.clipboardData||window.clipboardData).getData('text'); if(t && C.attPaste(t)) e.preventDefault(); });
+  document.addEventListener('copy', function(e){ if(!document.getElementById('atT') || !C.attCopy) return; if(/INPUT|TEXTAREA|SELECT/.test((e.target||{}).tagName||'')) return;
+    var t = C.attCopy(); if(t){ e.clipboardData.setData('text/plain', t); e.preventDefault(); } });
 }
 function saveAtt(){
   var d = C.att, cal = Object.keys(C.calDirty).map(function(ym){ var m=d.months.filter(function(x){return x.ym===ym;})[0]; return {ym:ym, days:m.days}; });
