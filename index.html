@@ -6,9 +6,13 @@
 <title>ระบบ ปพ.5</title>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
+@font-face{font-family:'PSKUI';src:local('TH Sarabun PSK'),local('THSarabunPSK'),local('TH SarabunPSK');size-adjust:120%}
+@font-face{font-family:'PSKUI';font-weight:700;src:local('TH Sarabun PSK Bold'),local('THSarabunPSK-Bold');size-adjust:120%}
+button,input,select,textarea{font-family:inherit}
+
 :root{--bg:#f6f7fb;--card:#fff;--ink:#1f2430;--mute:#6b7280;--line:#e3e6ee;--pri:#2457d6;--pri2:#e8efff;--ok:#0f8a5f;--bad:#c62828;--warn:#fff4d6}
 *{box-sizing:border-box}
-body{margin:0;font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--ink);font-size:16px}
+body{margin:0;font-family:'PSKUI','TH Sarabun PSK','THSarabunPSK','Sarabun',sans-serif;background:var(--bg);color:var(--ink);font-size:16px}
 header{background:var(--pri);color:#fff;padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 header h1{font-size:18px;margin:0;flex:1}
 header button{background:rgba(255,255,255,.15);color:#fff;border:0}
@@ -71,7 +75,7 @@ select.ri,select.colfill,select.rowfill,select.pf,select.st{padding:3px 4px;font
 details summary{cursor:pointer}
 @media print{
   body{background:#fff}header,main{display:none!important}#pview button{display:none}
-  #print{display:block;font-family:'TH Sarabun New','Sarabun',sans-serif;font-size:14pt}
+  #print{display:block;font-family:'TH Sarabun PSK','THSarabunPSK','Sarabun',sans-serif;font-size:16pt}
   #print table th,#print table td{border:1px solid #000;padding:2px 4px}
   @page{size:A4 portrait;margin:10mm}
 }
@@ -693,7 +697,7 @@ function dmcParse(buf){
       if(m){ var y = Number(m[3]); if(y > 2400) y -= 543; iso = y+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[1]).slice(-2); }
       var sx = g(r,'เพศ'), pf = g(r,'คำนำหน้าชื่อ'), sex = /^(ช|ชาย)$/.test(sx) || /เด็กชาย|นาย|ด\.ช/.test(pf) ? 'ชาย' : (/^(ญ|ห|หญิง)$/.test(sx) || /เด็กหญิง|นางสาว|ด\.ญ/.test(pf) ? 'หญิง' : '');
       return {classLevel: g(r,'ชั้น'), room: g(r,'ห้อง'), code: g(r,'รหัสนักเรียน'), name: (pf+g(r,'ชื่อ')+' '+g(r,'นามสกุล')).trim(), sex: sex, birth: iso,
-        nationality: g(r,'สัญชาติ'), religion: g(r,'ศาสนา'), idCard: g(r,'เลขประจำตัวประชาชน'), address: addr(r,'ที่อยู่ปัจจุบัน') || addr(r,'ทะเบียนบ้าน'),
+        nationality: g(r,'สัญชาติ'), religion: g(r,'ศาสนา'), idCard: g(r,'เลขประจำตัวประชาชน'), stuCode: g(r,'รหัสนักเรียน'), address: addr(r,'ที่อยู่ปัจจุบัน') || addr(r,'ทะเบียนบ้าน'),
         father: pre(r,0,'คำนำหน้าชื่อบิดา','ชื่อบิดา','นามสกุลบิดา'), mother: pre(r,0,'คำนำหน้าชื่อมารดา','ชื่อมารดา','นามสกุลมารดา'),
         guardian: pre(r,0,'คำนำหน้าชื่อผู้ปกครอง','ชื่อผู้ปกครอง','นามสกุลผู้ปกครอง'), guardianRel: g(r,'ความเกี่ยวข้องของผู้ปกครองกับนักเรียน'),
         phone: g(r,'หมายเลขโทรศัพท์ของผู้ปกครอง') || g(r,'หมายเลขโทรศัพท์ของบิดา') || g(r,'หมายเลขโทรศัพท์ของมารดา')};
@@ -1029,7 +1033,7 @@ function rateHtml(tab, d){
 }
 
 /* ================= ข้อมูลนักเรียนเพิ่มเติม ================= */
-var INFO_COLS = [['sex','เพศ','sel:ชาย,หญิง'],['birth','วันเกิด','date'],['nationality','สัญชาติ',''],['religion','ศาสนา',''],['idCard','เลขประจำตัวประชาชน',''],['address','ที่อยู่',''],['father','ชื่อบิดา',''],['mother','ชื่อมารดา',''],['guardian','ชื่อผู้ปกครอง',''],['guardianRel','เกี่ยวข้องเป็น',''],['phone','โทรศัพท์',''],['status','สถานะ (ออก)','sel:ย้าย,ลาออก'],['joined','ย้ายเข้า (วันที่/ระบุ)',''],['note','หมายเหตุ','']];
+var INFO_COLS = [['sex','เพศ','sel:ชาย,หญิง'],['birth','วันเกิด','date'],['nationality','สัญชาติ',''],['religion','ศาสนา',''],['idCard','เลขประจำตัวประชาชน',''],['address','ที่อยู่',''],['father','ชื่อบิดา',''],['mother','ชื่อมารดา',''],['guardian','ชื่อผู้ปกครอง',''],['guardianRel','เกี่ยวข้องเป็น',''],['phone','โทรศัพท์',''],['status','สถานะ (ออก)','sel:ย้าย,ลาออก'],['joined','ย้ายเข้า (วันที่/ระบุ)',''],['stuCode','เลขประจำตัวนักเรียน',''],['note','หมายเหตุ','']];
 function cInfo(){
   $('ctab').innerHTML = 'กำลังโหลด...';
   api('getStudentInfo', S.token, C.cl).then(function(d){ C.info = d; C.infoDirty = {}; drawInfo(); }).catch(cErr);
@@ -1065,7 +1069,7 @@ function drawInfo(){
       var hit = 0, miss = [];
       d.students.forEach(function(s){
         var r = byKey[dmcNameKey(s.name)]; if(!r){ miss.push(s.name); return; }
-        ['sex','birth','nationality','religion','idCard','address','father','mother','guardian','guardianRel','phone'].forEach(function(k){ if(r[k]) s[k] = r[k]; });
+        ['sex','birth','nationality','religion','idCard','address','father','mother','guardian','guardianRel','phone','stuCode'].forEach(function(k){ if(r[k]) s[k] = r[k]; });
         C.infoDirty[s.studentId] = true; hit++;
       });
       drawInfo();
@@ -1552,6 +1556,216 @@ function bookPersonPages(b, secs, onlySid){
     if(has(12)) pgs.push({o:'port', h: bkBack(b)});
   });
   return pgs;
+}
+/* ================= เอกสารพิมพ์ตามแบบ ปพ. เดิม (A4 แนวตั้ง) =================
+   ปก ปพ.5 รายวิชา · ปก ปพ.5 รายชั้น · ตารางผลสัมฤทธิ์รายวิชา · ปพ.6 รายบุคคล
+   (ประกาศทีหลังไฟล์อื่น จึงใช้แทนฟังก์ชันชื่อเดียวกันที่เขียนไว้ก่อนหน้า) */
+var DOC_FONT = "font-family:'TH Sarabun PSK','THSarabunPSK','TH SarabunPSK','Sarabun',sans-serif;";
+var GR_COLS = ['มส','ร','0','1','1.5','2','2.5','3','3.5','4'];
+var RATE_HEAD = ['ไม่ผ่าน','ผ่าน','ดี','ดีเยี่ยม'];
+function levelName(c){
+  var m = /^ป\.(\d)/.exec(c||''); if(m) return 'ประถมศึกษาปีที่ '+m[1];
+  m = /^อ\.(\d)/.exec(c||''); if(m) return 'อนุบาลปีที่ '+m[1];
+  m = /^ม\.(\d)/.exec(c||''); if(m) return 'มัธยมศึกษาปีที่ '+m[1];
+  return c||'';
+}
+function dash(n){ return n ? String(n) : '-'; }
+function dl(txt, mm, extra){   // ข้อความมีเส้นประใต้
+  return '<span style="display:inline-block;min-width:'+(mm||20)+'mm;border-bottom:1px dotted #000;text-align:center;padding:0 2mm;line-height:1.15;'+(extra||'')+'">'+(txt===''||txt==null?'&nbsp;':esc(txt))+'</span>';
+}
+function docFrame(inner){
+  return '<div style="'+DOC_FONT+'font-size:14pt;color:#000;border:1.5pt solid #000;box-sizing:border-box;padding:4mm 8mm;height:271mm;overflow:hidden;position:relative">'+inner+'</div>';
+}
+function dotLines(n){ var s=''; for(var i=0;i<n;i++) s += '<div style="border-bottom:1px dotted #000;height:7mm"></div>'; return s; }
+function counts4(k){   // k: {mB,fB,mO,fO,mI,fI,mE,fE}
+  var row = function(lbl, m, f){ return '<div style="display:flex;align-items:flex-end;gap:3mm;margin:0.8mm 0;white-space:nowrap;font-size:13.5pt"><span style="width:48mm;flex:none">'+lbl+'</span>ชาย '+dl(dash(m),16)+' คน&nbsp;&nbsp;&nbsp;หญิง '+dl(dash(f),16)+' คน&nbsp;&nbsp;&nbsp;รวม '+dl(dash(m+f),16)+' คน</div>'; };
+  return row('นักเรียนต้นปีการศึกษา',k.mB,k.fB) + row('ออกระหว่างปีการศึกษา',k.mO,k.fO) + row('เข้าระหว่างปีการศึกษา',k.mI,k.fI) + row('รวมสิ้นปีการศึกษา',k.mE,k.fE);
+}
+function countsOf(list){   // list: นักเรียนทั้งหมด (รวมที่ย้ายออก)
+  var o = {mB:0,fB:0,mO:0,fO:0,mI:0,fI:0,mE:0,fE:0};
+  list.forEach(function(s){
+    var m = s.sex==='ชาย', f = s.sex==='หญิง'; if(!m && !f) return;
+    var out = !!s.status, inn = !out && !!s.joined;
+    if(out){ if(m) o.mO++; else o.fO++; }
+    if(inn){ if(m) o.mI++; else o.fI++; }
+    if(!out){ if(m) o.mE++; else o.fE++; }
+    if(!inn){ if(m) o.mB++; else o.fB++; }     // ต้นปี = ทุกคนที่ไม่ได้ย้ายเข้าระหว่างปี (รวมที่ออกภายหลัง)
+  });
+  return o;
+}
+function gradeTable(dist, cols){
+  cols = cols || GR_COLS;
+  return '<table style="width:100%;table-layout:fixed;border-collapse:collapse;text-align:center;font-size:13pt"><colgroup><col style="width:22%">'+cols.map(function(){return '<col>';}).join('')+'</colgroup>'
+    + '<tr style="height:7mm"><td style="border:1px solid #000"><b>ระดับ</b></td>'+cols.map(function(g){ return '<td style="border:1px solid #000"><b>'+g+'</b></td>'; }).join('')+'</tr>'
+    + '<tr style="height:7mm"><td style="border:1px solid #000"><b>จำนวนนักเรียน</b></td>'+cols.map(function(g){ return '<td style="border:1px solid #000">'+dash(dist[g])+'</td>'; }).join('')+'</tr></table>';
+}
+function ratingTables(rate){   // rate: {trait,read,value,comp:[c0..c3]}
+  var blk = function(t1,k1,t2,k2){
+    var ths = RATE_HEAD.map(function(x){ return '<td style="border:1px solid #000;font-weight:700">'+x+'</td>'; }).join('');
+    var tds = function(k){ return (rate[k]||[0,0,0,0]).map(function(n){ return '<td style="border:1px solid #000">'+dash(n)+'</td>'; }).join(''); };
+    return '<tr style="height:5.6mm"><td rowspan="3" style="border:1px solid #000;font-weight:700">สรุปการประเมิน</td><td colspan="4" style="border:1px solid #000;font-weight:700">'+t1+'</td><td colspan="4" style="border:1px solid #000;font-weight:700">'+t2+'</td></tr>'
+      + '<tr style="height:5.6mm">'+ths+ths+'</tr><tr style="height:5.6mm">'+tds(k1)+tds(k2)+'</tr>';
+  };
+  return '<table style="width:100%;table-layout:fixed;border-collapse:collapse;text-align:center;font-size:13pt;margin-top:2mm"><colgroup><col style="width:20%">'+'<col>'.repeat(8)+'</colgroup>'
+    + blk('คุณลักษณะอันพึงประสงค์','trait','การอ่าน คิดวิเคราะห์ และเขียน','read') + blk('ค่านิยม 12 ประการ','value','สมรรถนะสำคัญของผู้เรียน','comp') + '</table>';
+}
+function approvalBlock(nm, school, who){
+  var lab = ['ครูประจำวิชา','หัวหน้างานวิชาการโรงเรียน','รองผู้อำนวยการโรงเรียน'];
+  if(who==='class') lab[0] = 'ครูประจำชั้น/ครูที่ปรึกษา';
+  var ln = ['', nm.academic||'', nm.deputy||''];
+  var h = '<div style="text-align:center;font-weight:700;margin:2mm 0 0.5mm;font-size:15pt">การอนุมัติผลการเรียน</div>'
+    + [0,1,2].map(function(i){ return '<div style="display:flex;align-items:flex-end;margin:0.5mm 0"><div style="flex:1 1 60%;border-bottom:1px dotted #000;height:6mm"></div><div style="flex:0 0 40%;padding-left:3mm">'+lab[i]+'</div></div>'; }).join('')
+    + '<div style="display:flex;justify-content:center;gap:28mm;margin:3mm 0 1mm;font-size:16pt"><span style="display:inline-flex;align-items:center;gap:3mm"><span style="display:inline-block;width:11mm;height:11mm;border:1.5pt solid #000"></span>อนุมัติ</span><span style="display:inline-flex;align-items:center;gap:3mm"><span style="display:inline-block;width:11mm;height:11mm;border:1.5pt solid #000"></span>ไม่อนุมัติ</span></div>'
+    + '<div style="width:100mm;margin:1mm auto 0;text-align:center;line-height:1.2;white-space:nowrap"><div style="border-bottom:1px dotted #000;height:5mm"></div>('+esc(nm.director)+')<br>ผู้อำนวยการ'+esc(school)+'<br>วันที่ '+dl('',10)+' เดือน '+dl('',22)+' พ.ศ. '+dl('',14)+'</div>';
+  return h;
+}
+function docHead(school, t1, t2){
+  return '<div style="text-align:center;line-height:1.35"><div style="font-size:21pt;font-weight:700">'+t1+'</div><div style="font-size:18pt;font-weight:700">'+esc(school)+'</div><div style="font-size:15pt;font-weight:700">เขตพื้นที่การศึกษาประถมศึกษาสตูล</div></div>';
+}
+
+/* ---------- ปก ปพ.5 รายวิชา ---------- */
+// m: {school, year, subject:{...}, teacher, homeroom:[...], counts:countsOf(...), dist:{...}, rate:{...}, names:{director,academic,deputy}}
+function subjCoverModelHtml(m){
+  var s = m.subject, pass = s.kind === 'pass', cols = pass ? ['ผ','มผ','ร','มส'] : GR_COLS;
+  var head = docHead(m.school, 'สมุดบันทึกการพัฒนาคุณภาพผู้เรียน (ปพ.5)');
+  var h = head + '<div style="margin-top:2mm">'
+    + '<div style="display:flex;align-items:flex-end;gap:3mm;margin:1mm 0"><span>ชั้น</span><span style="flex:1;border-bottom:1px dotted #000;text-align:center">'+esc(levelName(s.classLevel))+'</span><span>ปีการศึกษา</span>'+dl(m.year,28)+'</div>'
+    + '<div style="display:flex;align-items:flex-end;gap:3mm;margin:1.5mm 0"><span>รายวิชา</span><span style="flex:1;border-bottom:1px dotted #000;text-align:center">'+esc(s.name)+'</span><span>รหัส</span>'+dl(s.code,28)+'<span>เวลาเรียน</span>'+dl(s.hours||'',16)+'<span>ชั่วโมง/ปี</span></div>'
+    + '<div style="display:flex;align-items:flex-end;gap:3mm;margin:1.5mm 0"><span>กลุ่มสาระการเรียนรู้</span><span style="flex:1;border-bottom:1px dotted #000;text-align:center">'+esc(s.group||'')+'</span></div>'
+    + '<div style="display:flex;align-items:flex-end;margin:2mm 0 1mm"><div style="flex:1 1 60%;border-bottom:1px dotted #000;text-align:center;height:6mm">'+esc(m.teacher||'')+'</div><div style="flex:0 0 40%;padding-left:3mm">ครูประจำวิชา</div></div>'
+    + '<div style="display:flex;align-items:flex-end;margin:1mm 0 2mm"><div style="flex:1 1 60%;border-bottom:1px dotted #000;text-align:center;height:6mm">'+esc((m.homeroom||[]).join(', '))+'</div><div style="flex:0 0 40%;padding-left:3mm">ครูที่ปรึกษา/ครูประจำชั้น</div></div>'
+    + counts4(m.counts)
+    + '<div style="text-align:center;font-weight:700;font-size:16pt;margin:2mm 0 1mm">สรุปผลสัมฤทธิ์ทางการเรียนรู้</div>'
+    + gradeTable(m.dist, cols) + ratingTables(m.rate) + approvalBlock(m.names||{}, m.school, 'subj') + '</div>';
+  return docFrame(h);
+}
+function printCover(){
+  if(Object.keys(S.dirty).length || Object.keys(S.stDirty||{}).length){ if(!confirm('มีข้อมูลที่ยังไม่ได้บันทึก (ปกจะใช้ข้อมูลที่บันทึกแล้ว) พิมพ์ต่อหรือไม่?')) return; }
+  api('getCover', S.token, S.cur.subject.key).then(function(c){
+    var k = c.counts, cn = {mB: k.male - k.inM + k.outM, fB: k.female - k.inF + k.outF, mO: k.outM, fO: k.outF, mI: k.inM, fI: k.inF, mE: k.male, fE: k.female};
+    doPrint(subjCoverModelHtml({school: c.school, year: c.year, subject: c.subject, teacher: c.teacherName, homeroom: c.homeroom, counts: cn, dist: c.dist, rate: c.rate, names: c.names}), 'portrait');
+  }).catch(function(e){ note($('sMsg'), e.message, true); });
+}
+
+/* ---------- สร้างโมเดลจากรายงานชั้น (ใช้ในเล่มและปกรายชั้น) ---------- */
+function rateCountsFromReport(rep){
+  var o = {}; ['trait','read','value','comp'].forEach(function(k){
+    var c = [0,0,0,0]; rep.students.filter(function(s){ return !s.status; }).forEach(function(s){ var i = RATE_LBL.indexOf((s.traits[k]||{}).overall); if(i>=0) c[i]++; });
+    o[k] = c; });
+  return o;
+}
+function distFromReport(rep, key){
+  var d = {}; rep.students.filter(function(s){ return !s.status; }).forEach(function(s){ var g = s.results[key] ? s.results[key].grade : ''; if(g===''||g==null) return; g = String(g); d[g] = (d[g]||0)+1; });
+  return d;
+}
+function subjCoverHtml(det, b){
+  var s = det.subject, rep = b.report;
+  return subjCoverModelHtml({school: b.school, year: b.year, subject: s, teacher: s.teacher, homeroom: rep.teachers || [], counts: countsOf(rep.students), dist: distFromReport(rep, s.key), rate: rateCountsFromReport(rep), names: rep.names || {}});
+}
+
+/* ---------- ปก ปพ.5 รายชั้น ---------- */
+function classCoverHtml(r){
+  var nm = r.names || {}, rows = '', n = Math.max(8, r.subjects.length);
+  for(var i=0;i<n;i++){
+    var s = r.subjects[i], d = s ? distFromReport(r, s.key) : null;
+    rows += '<tr style="height:5.2mm"><td style="border:1px solid #000;text-align:left;padding-left:1mm;white-space:nowrap">'+(s?esc(s.code):'')+'</td><td style="border:1px solid #000;text-align:left;padding-left:1mm;white-space:nowrap">'+(s?esc(s.name):'')+'</td>'
+      + GR_COLS.map(function(g){ return '<td style="border:1px solid #000">'+(s?dash(d[g]):'')+'</td>'; }).join('')+'</tr>';
+  }
+  var h = docHead(r.school, 'สมุดบันทึกการพัฒนาคุณภาพผู้เรียน (ปพ.5)').replace('font-size:21pt','font-size:19pt')
+    + '<div style="margin-top:4mm"><div style="display:flex;align-items:flex-end;gap:3mm;margin:1mm 0"><span>ชั้น</span><span style="flex:1;border-bottom:1px dotted #000;text-align:center">'+esc(levelName(r.classLevel))+'</span><span>ปีการศึกษา</span>'+dl(r.year,28)+'</div>'
+    + '<div style="display:flex;align-items:flex-end;margin:2mm 0 3mm"><div style="flex:1 1 60%;border-bottom:1px dotted #000;text-align:center;height:7mm">'+esc((r.teachers||[]).join(', '))+'</div><div style="flex:0 0 40%;padding-left:3mm">ครูสอน/ครูประจำชั้น</div></div>'
+    + counts4(countsOf(r.students)).replace(/margin:1\.2mm 0/g,'margin:0.4mm 0')
+    + '<div style="text-align:center;font-weight:700;font-size:15pt;margin:2mm 0 1mm">สรุปผลสัมฤทธิ์ทางการเรียนรู้</div>'
+    + '<table style="width:100%;table-layout:fixed;border-collapse:collapse;text-align:center;font-size:11.5pt"><colgroup><col style="width:11%"><col style="width:31%">'+GR_COLS.map(function(){ return '<col>'; }).join('')+'</colgroup>'
+    + '<tr style="height:6mm"><td style="border:1px solid #000"><b>รหัส</b></td><td style="border:1px solid #000"><b>รายวิชา</b></td>'+GR_COLS.map(function(g){ return '<td style="border:1px solid #000"><b>'+g+'</b></td>'; }).join('')+'</tr>'+rows+'</table>'
+    + ratingTables(rateCountsFromReport(r)).replace('margin-top:3mm','margin-top:2mm') + approvalBlock(nm, r.school, 'class').replace(/margin:6mm auto 0/,'margin:3mm auto 0').replace('margin:6mm 0 3mm','margin:3mm 0 1mm') + '</div>';
+  return docFrame('<div style="zoom:.92">'+h+'</div>');
+}
+
+/* ---------- ตารางผลสัมฤทธิ์ทางการเรียนรายวิชา (ปพ.5) ---------- */
+function pp5Html(d){
+  var s = d.subject, pass = s.kind === 'pass';
+  var during = pass ? [] : d.assessments.filter(function(a){ return a.type !== 'final' && a.type !== 'central'; });
+  var nCol = pass ? 0 : Math.max(14, during.length), rowsN = Math.max(36, d.students.length);
+  var head = '<div style="'+DOC_FONT+'font-size:13pt;font-weight:700;line-height:1.35;margin:0 0 2mm 55mm">ผลสัมฤทธิ์ทางการเรียน ชั้น'+esc(levelName(s.classLevel))+' ปีการศึกษา '+esc(s.year)+'<br>รายวิชา '+esc(s.code)+' &nbsp;'+esc(s.name)+'<br>'
+    + (pass ? 'ประเมินผลเป็น ผ่าน (ผ) / ไม่ผ่าน (มผ)' : 'อัตราส่วนคะแนน ระหว่างเรียน : ปลายปี &nbsp;= &nbsp;&nbsp;&nbsp;&nbsp;'+esc(s.ratioDuring)+' &nbsp;:&nbsp; '+esc(s.ratioFinal)+(Number(s.centralPct)>0?' (ข้อสอบกลาง '+esc(s.centralPct)+'% ของปลายปี)':''))+'</div>';
+  var bd = 'border:1px solid #000;', rot = 'writing-mode:vertical-rl;transform:rotate(180deg);margin:auto;font-size:11pt;font-weight:700;';
+  var cg = '<colgroup><col style="width:7%"><col style="width:'+(pass?'55':'24')+'%">'+(pass ? '<col style="width:38%">' : (function(){ var w = (100-7-24-5.5-4.5-4.5-4.5)/nCol; var o=''; for(var i=0;i<nCol;i++) o += '<col style="width:'+w.toFixed(3)+'%">'; return o+'<col style="width:5.5%"><col style="width:4.5%"><col style="width:4.5%"><col style="width:4.5%">'; })())+'</colgroup>';
+  var t = '<table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:11pt;'+DOC_FONT+'">'+cg;
+  if(pass){
+    t += '<tr style="height:9mm"><td style="'+bd+'text-align:center;font-weight:700">เลขที่</td><td style="'+bd+'text-align:center;font-weight:700">ชื่อ-สกุล</td><td style="'+bd+'text-align:center;font-weight:700">ผลการประเมิน</td></tr>';
+  } else {
+    t += '<tr style="height:6mm"><td rowspan="3" style="'+bd+'text-align:center;font-weight:700">เลขที่</td><td rowspan="3" style="'+bd+'text-align:center;font-weight:700">ชื่อ-สกุล</td><td colspan="'+nCol+'" style="'+bd+'text-align:center;font-weight:700">คะแนนระหว่างเรียน</td>'
+      + '<td rowspan="2" style="'+bd+'text-align:center;font-weight:700;vertical-align:bottom">รวม</td><td rowspan="2" style="'+bd+'"><div style="'+rot+'">ทดสอบปลายปี</div></td><td rowspan="2" style="'+bd+'"><div style="'+rot+'">รวมทั้งปี</div></td><td rowspan="2" style="'+bd+'"><div style="'+rot+'">ระดับผลการเรียน</div></td></tr>';
+    t += '<tr style="height:22mm">'+Array.apply(null,Array(nCol)).map(function(_,i){ var a = during[i]; return '<td style="'+bd+'">'+(a?'<div style="'+rot.replace('font-size:11pt','font-size:9.5pt')+'font-weight:400;max-height:20mm;overflow:hidden">'+esc(a.name)+'</div>':'')+'</td>'; }).join('')+'</tr>';
+    t += '<tr style="height:5.5mm;font-weight:700;text-align:center">'+Array.apply(null,Array(nCol)).map(function(_,i){ var a = during[i]; return '<td style="'+bd+'">'+(a?esc(a.max):'')+'</td>'; }).join('')+'<td style="'+bd+'">'+esc(s.ratioDuring)+'</td><td style="'+bd+'">'+esc(s.ratioFinal)+'</td><td style="'+bd+'">100</td><td style="'+bd+'"></td></tr>';
+  }
+  var sums = {a:{}, du:0, fi:0, to:0}, cnt = {a:{}, du:0, fi:0, to:0};
+  for(var i=0;i<rowsN;i++){
+    var st = d.students[i];
+    t += '<tr style="height:4.5mm;text-align:center;font-size:10.5pt"><td style="'+bd+'">'+(st?esc(st.no):'')+'</td><td style="'+bd+'text-align:left;padding-left:1mm;white-space:nowrap;overflow:hidden">'+(st?esc(st.name)+(st.moved?' ('+esc(st.moved)+')':''):'')+'</td>';
+    if(pass){ var r0 = st ? resultOfStudent(st, d) : {grade:''}; t += '<td style="'+bd+'">'+esc(r0.grade)+'</td></tr>'; continue; }
+    var r = st ? resultOfStudent(st, d) : null, c = r && r.c, okc = c && c.grade !== '' && !r.special;
+    during.concat([]).forEach(function(a, j){ /* placeholder to keep order */ });
+    for(var j=0;j<nCol;j++){ var a = during[j], v = (st && a) ? d.scores[st.studentId+'|'+a.id] : undefined;
+      t += '<td style="'+bd+'">'+(v===undefined?'':esc(v))+'</td>';
+      if(st && a && v!==undefined && v!=='' && !st.moved){ sums.a[a.id] = (sums.a[a.id]||0) + Number(v); cnt.a[a.id] = (cnt.a[a.id]||0) + 1; } }
+    t += '<td style="'+bd+'">'+(okc?r2(c.during):'')+'</td><td style="'+bd+'">'+(okc?r2(c.fin):'')+'</td><td style="'+bd+'">'+(okc?r2(c.total):'')+'</td><td style="'+bd+'font-weight:700">'+(r?esc(r.grade):'')+'</td></tr>';
+    if(okc && !st.moved){ sums.du += c.during; sums.fi += c.fin; sums.to += c.total; cnt.du++; cnt.fi++; cnt.to++; }
+  }
+  if(!pass){
+    var lab = function(txt){ return '<td colspan="2" style="'+bd+'text-align:center;font-weight:700">'+txt+'</td>'; };
+    var cells = function(fn){ var o=''; for(var j=0;j<nCol;j++){ var a = during[j]; o += '<td style="'+bd+'font-size:9pt">'+(a&&cnt.a[a.id]?fn(sums.a[a.id], cnt.a[a.id], Number(a.max)):'')+'</td>'; } return o; };
+    var tot = function(fn){ return [['du',Number(s.ratioDuring)],['fi',Number(s.ratioFinal)],['to',100]].map(function(p){ return '<td style="'+bd+'font-size:9pt;font-weight:700">'+(cnt[p[0]]?fn(sums[p[0]], cnt[p[0]], p[1]):'')+'</td>'; }).join('')+'<td style="'+bd+'"></td>'; };
+    t += '<tr style="height:4.8mm;text-align:center">'+lab('รวม')+cells(function(sm){ return r2(sm); })+tot(function(sm){ return r2(sm); })+'</tr>'
+      + '<tr style="height:4.8mm;text-align:center">'+lab('เฉลี่ย')+cells(function(sm,n){ return r2(sm/n); })+tot(function(sm,n){ return r2(sm/n); })+'</tr>'
+      + '<tr style="height:4.8mm;text-align:center">'+lab('เฉลี่ย %')+cells(function(sm,n,mx){ return mx ? r2(sm/n/mx*100) : ''; })+tot(function(sm,n,mx){ return mx ? r2(sm/n/mx*100) : ''; })+'</tr>';
+  }
+  t += '</table>';
+  return '<div style="'+DOC_FONT+'font-size:12pt;color:#000">'+head+t+'<div style="margin:3mm 0 0 55mm;font-weight:700">ลงชื่อ....................................................ครูประจำชั้น/ครูประจำวิชา</div></div>';
+}
+
+/* ---------- ปพ.6 รายบุคคล ---------- */
+function pp6Html(r, onlySid){
+  var list = r.students.filter(function(s){ return !onlySid || s.studentId === onlySid; }), out = '', nm = r.names || {};
+  // อันดับคะแนนรวม (ไม่รวมนักเรียนที่ย้าย/ลาออก)
+  var tot = {}; r.students.forEach(function(st){ if(st.status) return; var sm = 0, n = 0; r.subjects.forEach(function(s){ var x = st.results[s.key]; if(s.kind!=='pass' && x && x.total!==null && x.total!==undefined && x.total!==''){ sm += x.total; n++; } }); if(n) tot[st.studentId] = sm; });
+  var rankT = function(sid){ if(tot[sid]===undefined) return ''; var rk = 1; Object.keys(tot).forEach(function(k){ if(tot[k] > tot[sid]) rk++; }); return rk; };
+  var bd = 'border:1px solid #000;', nRows = Math.max(16, r.subjects.length);
+  var activeN = r.students.filter(function(q){ return !q.status; }).length;
+  list.forEach(function(st, idx){
+    var sumH = 0, sumMax = 0, sumAvg = 0, sumGot = 0, nGot = 0, rows = '';
+    for(var i=0;i<nRows;i++){
+      var s = r.subjects[i];
+      if(!s){ rows += '<tr style="height:5.1mm"><td style="'+bd+'"></td><td style="'+bd+'"></td><td style="'+bd+'"></td><td style="'+bd+'"></td><td style="'+bd+'"></td><td style="'+bd+'"></td><td style="'+bd+'"></td><td style="'+bd+'"></td></tr>'; continue; }
+      var x = st.results[s.key] || {}, isP = s.kind==='pass', got = (x.total===null||x.total===undefined||x.total==='') ? null : x.total;
+      sumH += Number(s.hours)||0; if(!isP){ sumMax += 100; if(s.avg!==''&&s.avg!=null) sumAvg += Number(s.avg); if(got!==null){ sumGot += got; nGot++; } }
+      rows += '<tr style="height:5.1mm;text-align:center"><td style="'+bd+'">'+esc(s.code)+'</td><td style="'+bd+'text-align:left;padding-left:1mm;white-space:nowrap;overflow:hidden">'+esc(s.name)+'</td><td style="'+bd+'">'+esc(s.hours||'')+'</td><td style="'+bd+'">'+(isP?'-':'100.00')+'</td><td style="'+bd+'">'+(isP?'-':(s.avg===''||s.avg==null?'':Number(s.avg).toFixed(2)))+'</td><td style="'+bd+'">'+(isP||got===null?'-':Number(got).toFixed(2))+'</td><td style="'+bd+'">'+esc(gShow(x.grade))+'</td><td style="'+bd+'"></td></tr>';
+    }
+    var pct = sumMax && nGot ? (sumGot/sumMax*100) : null;
+    var actRows = (r.actNames||[]).map(function(n, i){ var v = (st.traits.act.overall||[])[i]; return '<tr style="height:5.1mm"><td style="'+bd+'padding-left:8mm;text-align:left;white-space:nowrap;font-size:11.5pt">'+esc(n)+'</td><td style="'+bd+'text-align:center">'+(v==='ผ'?'ผ่าน':(v==='มผ'?'ไม่ผ่าน':''))+'</td></tr>'; }).join('');
+    var lbl = function(t){ return '<td style="'+bd+'font-weight:700;padding-left:1mm;text-align:left;white-space:nowrap;font-size:10.3pt">'+t+'</td>'; }, val = function(v){ return '<td style="'+bd+'text-align:center">'+v+'</td>'; };
+    var lv = function(k){ var o = st.traits[k] && st.traits[k].overall; return o===''||o==null ? '' : o; };
+    var left = '<table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:12pt"><colgroup><col style="width:70%"><col style="width:30%"></colgroup>'
+      + '<tr style="height:5.1mm">'+lbl('คะแนนคิดเป็นร้อยละ')+val(pct===null?'':pct.toFixed(2))+'</tr><tr style="height:5.1mm">'+lbl('คะแนนรวมได้ลำดับที่')+val(rankT(st.studentId))+'</tr>'
+      + '<tr style="height:5.1mm">'+lbl('ผลการเรียนเฉลี่ย')+val(st.gpa===''?'':Number(st.gpa).toFixed(2))+'</tr><tr style="height:5.1mm">'+lbl('ผลการเรียนเฉลี่ยได้ลำดับที่')+val(st.rank)+'</tr>'
+      + '<tr style="height:5.1mm"><td colspan="2" style="'+bd+'font-weight:700;padding-left:1mm;text-align:left">ผลการประเมินกิจกรรมพัฒนาผู้เรียน</td></tr>'+actRows
+      + '<tr style="height:5.1mm">'+lbl('ผลการประเมินคุณลักษณะอันพึงประสงค์')+val(lv('trait'))+'</tr><tr style="height:5.1mm">'+lbl('ผลการประเมินการอ่าน คิดวิเคราะห์และเขียน')+val(lv('read'))+'</tr>'
+      + '<tr style="height:5.1mm">'+lbl('ผลการประเมินค่านิยมหลัก 12 ประการ')+val(lv('value'))+'</tr><tr style="height:5.1mm">'+lbl('ผลการประเมินสมรรถนะสำคัญของผู้เรียน')+val(lv('comp'))+'</tr></table>';
+    var sig = function(name, role){ return '<div style="margin:0 0 3mm;text-align:center;font-size:11.5pt;line-height:1.2"><div style="text-align:left">ลงชื่อ<span style="display:inline-block;width:42mm;border-bottom:1px dotted #000">&nbsp;</span></div>'+(name?'('+esc(name)+')<br>':'<br>')+role+'<br>วันที่ ........../........../..........</div>'; };
+    var right = sig((r.teachers||[])[0]||'', 'ครูประจำชั้น/ครูที่ปรึกษา') + sig(nm.academic||'', 'หัวหน้างานวิชาการโรงเรียน') + sig(nm.director||'', 'ผู้อำนวยการ'+esc(r.school)) + '<div style="text-align:left;font-size:11.5pt;margin-top:1mm">ลงชื่อ<span style="display:inline-block;width:42mm;border-bottom:1px dotted #000">&nbsp;</span><div style="text-align:center">ผู้ปกครองนักเรียน</div></div>';
+    var CG = '<colgroup><col style="width:4.5%"><col style="width:10%"><col style="width:26%"><col style="width:11%"><col style="width:9%"><col style="width:10.5%"><col style="width:9%"><col style="width:9.5%"><col style="width:10.5%"></colgroup>';
+    var h = '<div style="'+DOC_FONT+'color:#000;font-size:13pt;border:1.5pt solid #000;box-sizing:border-box;padding:5mm 7mm;height:271mm;overflow:hidden;'+(idx===list.length-1?'':'page-break-after:always;')+'">'
+      + '<div style="text-align:center;line-height:1.4"><div style="font-size:15.5pt;font-weight:700;white-space:nowrap">แบบรายงานประจำตัวนักเรียน : ผลการพัฒนาคุณภาพผู้เรียนรายบุคคล (ปพ.6)</div><div style="font-size:15pt;font-weight:700">'+esc(r.school)+' เขตพื้นที่การศึกษาประถมศึกษาสตูล</div><div style="font-size:14pt;font-weight:700">ชั้น'+esc(levelName(r.classLevel))+' ปีการศึกษา '+esc(r.year)+'</div></div>'
+      + '<div style="display:flex;align-items:flex-end;gap:3mm;margin:4mm 0 3mm;font-weight:700"><span>ชื่อ-สกุล</span><span style="flex:1;border-bottom:1px dotted #000;text-align:center">'+esc(st.name)+'</span><span>เลขประจำตัว</span>'+dl(st.stuCode||'',24,'font-weight:700')+'<span>เลขที่</span>'+dl(st.no,14,'font-weight:700')+'</div>'
+      + '<table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:12pt">'+CG
+      + '<tr style="height:11mm;text-align:center;font-weight:700;font-size:11pt;white-space:normal;line-height:1.1"><td rowspan="'+(nRows+1)+'" style="'+bd+'"><div style="writing-mode:vertical-rl;transform:rotate(180deg);margin:auto;font-size:12pt">ผลการเรียนรายวิชา</div></td><td style="'+bd+'white-space:normal">รหัสวิชา</td><td style="'+bd+'">รายวิชา</td><td style="'+bd+'">เวลาเรียน<br>(ชั่วโมง/ปี)</td><td style="'+bd+'">คะแนน<br>เต็ม</td><td style="'+bd+'">เฉลี่ย<br>ในชั้นเรียน</td><td style="'+bd+'">คะแนน<br>ที่ได้</td><td style="'+bd+'">ผล<br>การเรียน</td><td style="'+bd+'">หมายเหตุ</td></tr>'
+      + rows
+      + '<tr style="height:5.1mm;text-align:center"><td colspan="3" style="'+bd+'font-weight:700">รวม</td><td style="'+bd+'">'+sumH+'</td><td style="'+bd+'">'+sumMax.toFixed(2)+'</td><td style="'+bd+'">'+(sumAvg?sumAvg.toFixed(2):'')+'</td><td style="'+bd+'">'+(nGot?sumGot.toFixed(2):'')+'</td><td style="'+bd+'"></td><td style="'+bd+'"></td></tr></table>'
+      + '<div style="display:flex;gap:0;margin-top:-1px"><div style="flex:0 0 60%">'+left+'</div><div style="flex:1;padding:2mm 0 0 4mm">'+right+'</div></div></div>';
+    out += h;
+  });
+  return out;
 }
 
 /*@@MODULES_END@@*/
