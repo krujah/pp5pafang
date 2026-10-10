@@ -585,10 +585,19 @@ function fixPrintTables(root){
     if(n > 16) t.style.fontSize = n > 28 ? '7pt' : '8.5pt';
   });
 }
+function fitCells(root){   // ย่อตัวอักษรช่องที่ข้อความยาวเกินความกว้าง (ช่องขนาดคงที่)
+  var keep = root.getAttribute('style');
+  root.style.cssText = 'display:block;position:absolute;left:-9999px;top:0;visibility:hidden';
+  [].forEach.call(root.querySelectorAll('td[data-f]'), function(c){
+    var fs = parseFloat(window.getComputedStyle(c).fontSize) * 0.75 || 11, n = 0;   // px → pt
+    while(c.scrollWidth > c.clientWidth + 1 && fs > 6 && n++ < 12){ fs -= 0.5; c.style.fontSize = fs + 'pt'; }
+  });
+  if(keep == null) root.removeAttribute('style'); else root.setAttribute('style', keep);
+}
 function doPrint(html, orient){
-  $('print').innerHTML = String(html).replace(/\.{22,}/g, '....................'); fixPrintTables($('print'));
+  $('print').innerHTML = String(html).replace(/\.{22,}/g, '....................'); fixPrintTables($('print')); try{ fitCells($('print')); }catch(e){}
   var st = $('pgStyle'); if(!st){ st = document.createElement('style'); st.id = 'pgStyle'; document.head.appendChild(st); }
-  st.textContent = '@media print{#print,#print *{font-family:"TH Sarabun PSK","THSarabunPSK","TH SarabunPSK","TH Sarabun New","Sarabun",sans-serif !important}@page{size:A4 portrait;margin:10mm}#print table{table-layout:fixed;border-collapse:collapse;width:100%}#print td{overflow:hidden;white-space:nowrap;text-overflow:clip}#print th{overflow:hidden;word-break:break-word;line-height:1.15}#print tr{height:6.2mm}}';
+  st.textContent = '@media print{#print,#print *{font-family:"TH Sarabun PSK","THSarabunPSK","TH SarabunPSK","TH Sarabun New","Sarabun",sans-serif !important}@page{size:A4 portrait;margin:10mm}@page land{size:A4 landscape;margin:10mm}@page port{size:A4 portrait;margin:10mm}#print table{table-layout:fixed;border-collapse:collapse;width:100%}#print td{overflow:hidden;white-space:nowrap;text-overflow:clip}#print th{overflow:hidden;word-break:break-word;line-height:1.15}#print tr{height:6.2mm}}';
   setTimeout(function(){ window.print(); }, 60);
 }
 function cErr(e){ var el = $('cMsg') || $('sMsg'); if(el) note(el, e.message, true); else alert(e.message); }
@@ -700,6 +709,7 @@ function dmcParse(buf){
         nationality: g(r,'สัญชาติ'), religion: g(r,'ศาสนา'), idCard: g(r,'เลขประจำตัวประชาชน'), stuCode: g(r,'รหัสนักเรียน'), address: addr(r,'ที่อยู่ปัจจุบัน') || addr(r,'ทะเบียนบ้าน'),
         father: pre(r,0,'คำนำหน้าชื่อบิดา','ชื่อบิดา','นามสกุลบิดา'), mother: pre(r,0,'คำนำหน้าชื่อมารดา','ชื่อมารดา','นามสกุลมารดา'),
         guardian: pre(r,0,'คำนำหน้าชื่อผู้ปกครอง','ชื่อผู้ปกครอง','นามสกุลผู้ปกครอง'), guardianRel: g(r,'ความเกี่ยวข้องของผู้ปกครองกับนักเรียน'),
+        fatherJob: g(r,'อาชีพบิดา'), motherJob: g(r,'อาชีพมารดา'), guardianJob: g(r,'อาชีพผู้ปกครอง'),
         phone: g(r,'หมายเลขโทรศัพท์ของผู้ปกครอง') || g(r,'หมายเลขโทรศัพท์ของบิดา') || g(r,'หมายเลขโทรศัพท์ของมารดา')};
     });
   });
@@ -1033,7 +1043,7 @@ function rateHtml(tab, d){
 }
 
 /* ================= ข้อมูลนักเรียนเพิ่มเติม ================= */
-var INFO_COLS = [['sex','เพศ','sel:ชาย,หญิง'],['birth','วันเกิด','date'],['nationality','สัญชาติ',''],['religion','ศาสนา',''],['idCard','เลขประจำตัวประชาชน',''],['address','ที่อยู่',''],['father','ชื่อบิดา',''],['mother','ชื่อมารดา',''],['guardian','ชื่อผู้ปกครอง',''],['guardianRel','เกี่ยวข้องเป็น',''],['phone','โทรศัพท์',''],['status','สถานะ (ออก)','sel:ย้าย,ลาออก'],['joined','ย้ายเข้า (วันที่/ระบุ)',''],['stuCode','เลขประจำตัวนักเรียน',''],['note','หมายเหตุ','']];
+var INFO_COLS = [['sex','เพศ','sel:ชาย,หญิง'],['birth','วันเกิด','date'],['nationality','สัญชาติ',''],['religion','ศาสนา',''],['idCard','เลขประจำตัวประชาชน',''],['address','ที่อยู่',''],['father','ชื่อบิดา',''],['mother','ชื่อมารดา',''],['guardian','ชื่อผู้ปกครอง',''],['guardianRel','เกี่ยวข้องเป็น',''],['phone','โทรศัพท์',''],['status','สถานะ (ออก)','sel:ย้าย,ลาออก'],['joined','ย้ายเข้า (วันที่/ระบุ)',''],['stuCode','เลขประจำตัวนักเรียน',''],['fatherJob','อาชีพบิดา',''],['motherJob','อาชีพมารดา',''],['guardianJob','อาชีพผู้ปกครอง',''],['note','หมายเหตุ','']];
 function cInfo(){
   $('ctab').innerHTML = 'กำลังโหลด...';
   api('getStudentInfo', S.token, C.cl).then(function(d){ C.info = d; C.infoDirty = {}; drawInfo(); }).catch(cErr);
@@ -1766,6 +1776,370 @@ function pp6Html(r, onlySid){
     out += h;
   });
   return out;
+}
+/* ข้อความอ้างอิง (จากไฟล์ที่ครูให้มา) */
+var REF_TRAIT = [{"t": "๑. รักชาติ ศาสน์ กษัตริย์", "d": "รักชาติ ศาสน์ กษัตริย์ หมายถึง คุณลักษณะที่แสดงออกถึงการเป็นพลเมืองดีของชาติ ธำรงไว้ซึ่งความเป็นชาติไทย ศรัทธา ยึดมั่นในศาสนา และเคารพเทิดทูนสถาบันพระมหากษัตริย์", "p": "ผู้ที่รักชาติ ศาสน์ กษัตริย์ คือ ผู้ที่มีลักษณะซึ่งแสดงออกถึงการเป็นพลเมืองดีของชาติ มีความสามัคคีปรองดอง ภูมิใจ เชิดชูความเป็นชาติไทย ปฏิบัติตนตามหลักศาสนาที่ตนนับถือ และแสดงความจงรักภักดีต่อสถาบันพระมหากษัตริย์"}, {"t": "๒. ซื่อสัตย์สุจริต", "d": "ซื่อสัตย์สุจริต หมายถึง คุณลักษณะที่แสดงออกถึงการยึดมั่นในความถูกต้อง ประพฤติตรงตามความเป็นจริงต่อตนเองและผู้อื่น ทั้งทางกาย วาจา ใจ", "p": "ผู้ที่มีความซื่อสัตย์สุจริต คือ ผู้ที่ประพฤติตรงตามความเป็นจริงทั้งทางกาย วาจา ใจ และยึดหลักความจริง ความถูกต้องในการดำเนินชีวิต มีความละอายและเกรงกลัวต่อการกระทำผิด"}, {"t": "๓. มีวินัย", "d": "มีวินัย หมายถึง คุณลักษณะที่แสดงออกถึงการยึดมั่นในข้อตกลง กฎเกณฑ์ และระเบียบ ข้อบังคับของครอบครัว โรงเรียน และสังคม", "p": "ผู้มีวินัย คือ ผู้ที่ปฏิบัติตนตามข้อตกลงกฎเกณฑ์ และระเบียบ ข้อบังคับของครอบครัว โรงเรียน และสังคมเป็นปกติวิสัย ไม่ละเมิดสิทธิของผู้อื่น"}, {"t": "๔. ใฝ่เรียนรู้", "d": "ใฝ่เรียนรู้ หมายถึง คุณลักษณะที่แสดงออกถึงความตั้งใจ เพียรพยายามในการเรียน แสวงหาความรู้จากแหล่งเรียนรู้ทั้งภายในและภายนอกโรงเรียน", "p": "ผู้ที่ใฝ่เรียนรู้ คือ ผู้ที่มีลักษณะแสดงออกถึงความตั้งใจ เพียรพยายามในการเรียนและเข้าร่วมกิจกรรมการเรียนรู้ แสวงหาความรู้จากแหล่งเรียนรู้ทั้งภายในและภายนอกโรงเรียนอย่างสม่ำเสมอ ด้วยการเลือกใช้สื่ออย่างเหมาะสม บันทึกความรู้ วิเคราะห์ สรุปเป็นองค์ความรู้ แลกเปลี่ยนเรียนรู้ ถ่ายทอด เผยแพร่ และนำไปใช้ในชีวิตประจำวันได้"}, {"t": "๕. อยู่อย่างพอเพียง", "d": "อยู่อย่างพอเพียง หมายถึง คุณลักษณะที่แสดงออกถึงการดำเนินชีวิตอย่างพอประมาณ มีเหตุผล รอบคอบ มีคุณธรรม มีภูมิคุ้มกันในตัวที่ดี และปรับตัวเพื่ออยู่ในสังคมได้อย่างมีความสุข", "p": "ผู้ที่อยู่อย่างพอเพียง คือ ผู้ที่ดำเนินชีวิตอย่างประมาณตน มีเหตุผล รอบคอบ ระมัดระวัง อยู่ร่วมกับผู้อื่นด้วยความรับผิดชอบ ไม่เบียดเบียนผู้อื่น เห็นคุณค่าของทรัพยากรต่างๆ มีการวางแผนป้องกันความเสี่ยง และพร้อมรับการเปลี่ยนแปลง"}, {"t": "๖. มุ่งมั่นในการทำงาน", "d": "มุ่งมั่นในการทำงาน หมายถึง คุณลักษณะที่แสดงออกถึงความตั้งใจ และรับผิดชอบในการทำหน้าที่การงานด้วยความเพียรพยายาม อดทน เพื่อให้งานสำเร็จตามเป้าหมาย", "p": "ผู้ที่มุ่งมั่นในการทำงาน คือ ผู้ที่มีลักษณะซึ่งแสดงออกถึงความตั้งใจปฏิบัติหน้าที่ที่ได้รับมอบหมายด้วยความเพียรพยายาม ทุ่มเทกำลังกาย กำลังใจ ในการปฏิบัติกิจกรรมต่างๆ ให้สำเร็จลุล่วงตามเป้าหมายที่กำหนดด้วยความรับผิดชอบ และมีความภาคภูมิใจในผลงาน"}, {"t": "๗. รักความเป็นไทย", "d": "รักความเป็นไทย หมายถึง คุณลักษณะที่แสดงออกถึงความภาคภูมิใจ เห็นคุณค่า ร่วมอนุรักษ์สืบทอดภูมิปัญญาไทย ขนบธรรมเนียมประเพณี ศิลปะและวัฒนธรรม ใช้ภาษาไทยในการสื่อสารได้อย่างถูกต้องและเหมาะสม", "p": "ผู้ที่รักความเป็นไทย คือ ผู้ที่มีความภาคภูมิใจ เห็นคุณค่า ชื่นชม มีส่วนร่วมในการอนุรักษ์ สืบทอด เผยแพร่ภูมิปัญญาไทย ขนบธรรมเนียมประเพณี ศิลปะและวัฒนธรรมไทย มีความกตัญญูกตเวที ใช้ภาษาไทยในการสื่อสารอย่างถูกต้องเหมาะสม"}, {"t": "๘. มีจิตสาธารณะ", "d": "มีจิตสาธารณะ หมายถึง คุณลักษณะที่แสดงออกถึงการมีส่วนร่วมในกิจกรรมหรือสถานการณ์ที่ก่อให้เกิดประโยชน์แก่ผู้อื่น ชุมชน และสังคม ด้วยความเต็มใจ กระตือรือร้น โดยไม่หวังผลตอบแทน", "p": "ผู้ที่มีจิตสาธารณะ คือ ผู้ที่มีลักษณะเป็นผู้ให้และช่วยเหลือผู้อื่น แบ่งปันความสุขส่วนตนเพื่อทำประโยชน์แก่ส่วนรวม เข้าใจ เห็นใจผู้ที่มีความเดือดร้อน อาสาช่วยเหลือสังคม อนุรักษ์สิ่งแวดล้อมด้วยแรงกาย สติปัญญา ลงมือปฏิบัติเพื่อแก้ปัญหา หรือร่วมสร้างสรรค์สิ่งที่ดีงามให้เกิดในชุมชน โดยไม่หวังสิ่งตอบแทน"}];
+var REF_READ = [{"b": "ชั้นประถมศึกษาปีที่ ๑ – ๓", "s": "การอ่านจากสื่อสิ่งพิมพ์ และหรือสื่อประเภทต่าง ๆ ที่ให้ความเพลิดเพลิน ความรู้ ประสบการณ์และมีประเด็นให้คิด และเขียนบรรยายถ่ายทอดประเด็นที่คิดด้วยภาษาที่ถูกต้องเหมาะสม เช่น อ่านนิยาย เรื่องสั้น นิทาน นิยายปรัมปรา", "i": ["สามารถอ่านและหาประสบการณ์จากสื่อที่หลากหลาย", "สามารถจับประเด็นสำคัญ ข้อเท็จจริง ความคิดเห็นจากเรื่องที่อ่าน", "สามารถเปรียบเทียบแง่มุมต่าง ๆ เช่น ข้อดี ข้อเสีย ประโยชน์ โทษ ความเหมาะสม ไม่เหมาะสม", "สามารถแสดงความคิดเห็นต่อเรื่องที่อ่าน โดยมีเหตุผลประกอบ", "สามารถถ่ายทอดความคิดเห็น ความรู้สึกจากเรื่องที่อ่านโดยการเขียน"]}, {"b": "ชั้นประถมศึกษาปีที่ ๔ – ๖", "s": "การอ่านจากสื่อสิ่งพิมพ์ และหรือสื่อประเภทต่าง ๆ ที่ให้ข้อมูลสารสนเทศ ความรู้ ประสบการณ์ที่เอื้อให้ผู้อ่านนำไปคิดวิเคราะห์ แสดงความคิดเห็น ตัดสินใจ แก้ปัญหา และถ่ายทอดโดยการเขียนเป็นความเรียงเชิงสร้างสรรค์ด้วยถ้อยคำภาษาที่ถูกต้องชัดเจน เช่น อ่านหนังสือพิมพ์ วารสาร หนังสือเรียน บทความ สุนทรพจน์ คำแนะนำ คำเตือน", "i": ["สามารถอ่านเพื่อหาข้อมูลสารสนเทศเสริมประสบการณ์จากสื่อประเภทต่าง ๆ", "สามารถจับประเด็นสำคัญ เปรียบเทียบ เชื่อมโยงความเป็นเหตุเป็นผลจากเรื่องที่อ่าน", "สามารถเชื่อมโยงความสัมพันธ์ของเรื่องราว เหตุการณ์ของเรื่องที่อ่าน", "สามารถแสดงความคิดเห็นต่อเรื่องที่อ่านโดยมีเหตุผลสนับสนุน", "สามารถถ่ายทอดความเข้าใจ ความคิดเห็น คุณค่าจากเรื่องที่อ่านโดยการเขียน"]}, {"b": "ชั้นมัธยมศึกษาปีที่ ๑ – ๓", "s": "การอ่านจากสื่อสิ่งพิมพ์และสื่ออิเล็กทรอนิกส์ที่ให้ข้อมูลสารสนเทศ ข้อคิด ความรู้เกี่ยวกับสังคมและสิ่งแวดล้อมที่เอื้อให้ผู้อ่านนำไปคิดวิเคราะห์ วิจารณ์ สรุปแนวคิด คุณค่าที่ได้ นำไปประยุกต์ใช้ ด้วยวิจารณญาณ และถ่ายทอดเป็นข้อเขียนเชิงสร้างสรรค์หรือรายงานด้วยภาษาที่ถูกต้องเหมาะสม เช่น อ่านหนังสือพิมพ์ วารสาร หนังสือเรียน บทความ สุนทรพจน์ คำแนะนำ คำเตือน แผนภูมิ ตาราง แผนที่", "i": ["สามารถคัดสรรสื่อที่ต้องการอ่านเพื่อหาข้อมูลสารสนเทศได้ตามวัตถุประสงค์ สามารถสร้างความเข้าใจและประยุกต์ใช้ความรู้จากการอ่าน", "สามารถจับประเด็นสำคัญและประเด็นสนับสนุน โต้แย้ง", "สามารถวิเคราะห์ วิจารณ์ ความสมเหตุสมผล ความน่าเชื่อถือ ลำดับความ และความเป็นไปได้ของเรื่องที่อ่าน", "สามารถสรุปคุณค่า แนวคิด แง่คิดที่ได้จากการอ่าน", "สามารถสรุป อภิปราย ขยายความ แสดงความคิดเห็น โต้แย้ง สนับสนุน โน้มน้าว โดยการเขียนสื่อสารในรูปแบบต่าง ๆ เช่น ผังความคิด เป็นต้น"]}, {"b": "ชั้นมัธยมศึกษาปีที่ ๔ – ๖", "s": "การอ่านจากสื่อสิ่งพิมพ์และสื่ออิเล็กทรอนิกส์ที่ให้ข้อมูลสารสนเทศ ความรู้ ประสบการณ์ แนวคิด ทฤษฎี รวมทั้งความงดงามทางภาษาที่เอื้อให้ผู้อ่านวิเคราะห์ วิพากษ์ วิจารณ์ แสดงความคิดเห็น โต้แย้งหรือสนับสนุน ทำนาย คาดการณ์ ตลอดจนประยุกต์ใช้ในการตัดสินใจ แก้ปัญหา และถ่ายทอดเป็นข้อเขียนเชิงสร้างสรรค์ รายงาน บทความทางวิชาการอย่างถูกต้องตามหลักวิชา เช่น อ่านบทความวิชาการ วรรณกรรมประเภทต่าง ๆ", "i": ["สามารถอ่านเพื่อการศึกษา ค้นคว้า เพิ่มพูนความรู้ ประสบการณ์และการประยุกต์ใช้ในชีวิตประจำวัน", "สามารถจับประเด็นสำคัญ ลำดับเหตุการณ์จากการอ่านสื่อที่มีความซับซ้อน", "สามารถวิเคราะห์สิ่งที่ผู้เขียนต้องการสื่อสารกับผู้อ่าน และสามารถวิพากษ์ ให้ข้อเสนอแนะในแง่มุมต่าง ๆ", "สามารถประเมินความน่าเชื่อถือ คุณค่า แนวคิดที่ได้จากสิ่งที่อ่านอย่างหลากหลาย", "สามารถเขียนแสดงความคิดเห็น โต้แย้ง สรุป โดยมีข้อมูลอธิบายสนับสนุนอย่างเพียงพอและสมเหตุสมผล"]}];
+var REF_COMP_INTRO = "คุณภาพผู้เรียนด้านสมรรถนะสำคัญของผู้เรียน ๕ ข้อ ได้ยึดตามกรอบหลักสูตรแกนกลางการศึกษาขั้นพื้นฐาน พุทธศักราช ๒๕๕๑ ดังนี้";
+var REF_COMP = ["ความสามารถในการสื่อสาร หมายถึง ใช้ภาษาถ่ายทอดความคิด ความรู้ ความเข้าใจ ความรู้สึก และทัศนะของตนเอง เพื่อเปลี่ยนข้อมูลข่าวสารและประสบการณ์อันจะเป็นประโยชน์ต่อการพัฒนาตนเองและสังคม รวมทั้งการเจรจาต่อรองเพื่อขจัดและลดปัญหาความขัดแย้งต่าง ๆ การเลือกรับหรือไม่รับข้อมูลข่าวสารด้วยหลักเหตุผลและความถูกต้อง ตลอดจนการเลือกใช้วิธีการสื่อสารที่มีประสิทธิภาพโดยคำนึงถึงผลกระทบที่มีต่อตนเองและสังคม", "ความสามารถในการคิด หมายถึง รู้จักคิดวิเคราะห์ คิดสังเคราะห์ คิดอย่างสร้างสรรค์ คิดอย่างมีวิจารณญาณ และคิดเป็นระบบ เพื่อนำไปสู่การสร้างองค์ความรู้หรือสารสนเทศ เพื่อการตัดสินใจเกี่ยวกับตนเองและสังคมได้อย่างเหมาะสม", "ความสามารถในการแก้ปัญหา หมายถึง เข้าใจความสัมพันธ์และการเปลี่ยนแปลงของเหตุการณ์ต่าง ๆ ในสังคมแสวงหาความรู้ ประยุกต์ความรู้มาใช้ในการป้องกัน และแก้ไขปัญหาได้อย่างถูกต้องเหมาะสมบนพื้นฐานของหลักเหตุผลคุณธรรมและข้อมูลสารสนเทศ รวมทั้งตัดสินใจที่มีประสิทธิภาพ โดยคำนึงถึงผลกระทบที่เกิดขึ้นต่อตนเอง สังคมและสิ่งแวดล้อม", "ความสามารถในการใช้ทักษะชีวิต หมายถึง ใช้กระบวนการต่าง ๆ ในการดำเนินชีวิตประจำวัน เรียนรู้ด้วยตนเองต่อเนื่อง ทำงานและอยู่ร่วมกันในสังคมด้วยการสร้างเสริมความสัมพันธ์อันดีระหว่างบุคคล จัดการปัญหาและความขัดแย้งต่าง ๆอย่างเหมาะสม รู้จักปรับตัวให้ทันกับการเปลี่ยนแปลงของสังคมสภาพแวดล้อม และหลีกเลี่ยงพฤติกรรมไม่พึงประสงค์ที่ส่งผลกระทบต่อตนเองและผู้อื่น", "ความสามารถในการใช้เทคโนโลยี หมายถึง รู้จักเลือกและใช้เทคโนโลยีด้านต่าง ๆ ทักษะกระบวนการทางเทคโนโลยี เพื่อการพัฒนาตนเองและสังคมในด้านการเรียนรู้ การสื่อสาร การทำงาน การแก้ปัญหาอย่างสร้างสรรค์ ถูกต้องเหมาะสมและมีคุณธรรม"];
+var REF_VALUE_INTRO = "คณะรักษาความสงบแห่งชาติ (คสช.) ได้ประกาศนโยบายค่านิยมหลักของคนไทย ๑๒ ประการ เพื่อเสริมสร้างและปลูกฝังให้แก่เยาวชนและคนไทย ดังนี้";
+var REF_VALUE = ["มีความรักชาติ ศาสนา พระมหากษัตริย์", "ซื่อสัตย์ เสียสละ อดทน มีอุดมการณ์ในสิ่งที่ดีงามเพื่อส่วนรวม", "กตัญญูต่อพ่อแม่ ผู้ปกครอง ครูบาอาจารย์", "ใฝ่หาความรู้ หมั่นศึกษาเล่าเรียนทั้งทางตรง และทางอ้อม", "รักษาวัฒนธรรมประเพณีไทยอันงดงาม", "มีศีลธรรม รักษาความสัตย์ หวังดีต่อผู้อื่น เผื่อแผ่และแบ่งปัน", "เข้าใจเรียนรู้การเป็นประชาธิปไตย อันมีพระมหากษัตริย์ทรงเป็นประมุขที่ถูกต้อง", "มีระเบียบวินัย เคารพกฎหมาย ผู้น้อยรู้จักการเคารพผู้ใหญ่", "มีสติรู้ตัว รู้คิด รู้ทำ รู้ปฏิบัติตามพระราชดำรัสของพระบาทสมเด็จพระเจ้าอยู่หัว", "รู้จักดำรงตนอยู่โดยใช้หลักปรัชญาเศรษฐกิจพอเพียงตามพระราชดำรัสของพระบาทสมเด็จพระเจ้าอยู่หัว รู้จักอดออมไว้ใช้เมื่อยามจำเป็น มีไว้พอกินพอใช้ ถ้าเหลือก็แจกจ่ายจำหน่ายและพร้อมที่จะขยายกิจการเมื่อมีความพร้อมเมื่อมีภูมิคุ้มกันที่ดี", "มีความเข้มแข็งทั้งร่างกาย และจิตใจ ไม่ยอมแพ้ต่ออำนาจฝ่ายต่ำหรือกิเลส มีความละอายเกรงกลัวต่อบาปตามหลักของศาสนา", "คำนึงถึงผลประโยชน์ของส่วนรวม และของชาติมากกว่าผลประโยชน์ของตนเอง"];
+/* ================= เอกสารรายชั้นตามตัวอย่างที่ครูส่งมา =================
+   (ประกาศทีหลังไฟล์อื่น จึงใช้แทน BK_SECS / bookClassPages เดิม)
+   A4 แนวตั้งทุกแผ่น ยกเว้น "สรุปผลการประเมินผลสัมฤทธิ์" ที่ตัวอย่างเป็นแนวนอน
+   ขนาดช่องตารางคงที่ ไม่ขยายตามข้อความ */
+var BK_SECS = [[1,'ปก ปพ.5 (รายชั้น/รายวิชา)'],[2,'รายชื่อนักเรียน'],[3,'ชื่อ-สกุล บิดา มารดา และอาชีพ'],[4,'ผู้ปกครอง และที่อยู่'],[5,'เวลาเรียนรายเดือน + สรุปเวลาเรียน (ภาค 1, ภาค 2, ตลอดปี)'],[6,'น้ำหนัก-ส่วนสูง · ผลประเมินภาวะโภชนาการ · อัตราความชุก · รายชื่อนักเรียนที่มีปัญหา'],[7,'ผลสัมฤทธิ์ทางการเรียน (ตารางคะแนนรายวิชา)'],[13,'สรุปผลการเรียนรายชั้น (สรุปผลสัมฤทธิ์ · ระดับผลการเรียน · คะแนนผลการเรียน)'],[8,'คุณลักษณะอันพึงประสงค์ / การอ่าน คิดวิเคราะห์ และเขียนสื่อความ'],[9,'ค่านิยม 12 ประการ / สมรรถนะสำคัญของผู้เรียน'],[10,'กิจกรรมพัฒนาผู้เรียน'],[11,'เอกสารแนบท้าย (คำอธิบายคุณลักษณะ ค่านิยม สมรรถนะ · รายวิชา)'],[12,'ปกหลัง']];
+var TH_MF = ['','มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+var RB = 'border:1px solid #000;';
+var AREA_OFFICE = 'สำนักงานเขตพื้นที่การศึกษาประถมศึกษาสตูล';
+function rp2(x){ return (Math.round(Number(x)*100)/100).toFixed(2); }
+function rpInt(x){ return Number(x).toLocaleString('en-US'); }
+function dFull(iso){ if(!/^\d{4}-\d{2}-\d{2}$/.test(iso||'')) return ''; var p = iso.split('-'); return Number(p[2])+' '+TH_MF[Number(p[1])]+' '+(Number(p[0])+543); }
+function dShort(iso){ if(!/^\d{4}-\d{2}-\d{2}$/.test(iso||'')) return ''; var p = iso.split('-'); return Number(p[2])+'/'+Number(p[1])+'/'+(Number(p[0])+543); }
+function dSlash(iso){ if(!/^\d{4}-\d{2}-\d{2}$/.test(iso||'')) return ''; var p = iso.split('-'); return p[2]+'/'+p[1]+'/'+(Number(p[0])+543); }
+function rpSex(s){ return s==='ชาย' ? 'ช' : (s==='หญิง' ? 'ญ' : ''); }
+function sName(s){ return s.name + (s.status ? ' ('+s.status+')' : ''); }
+
+/* ---------- ตัวช่วยสร้างหน้า/ตาราง ---------- */
+function rpPage(inner, land){
+  return '<div style="'+DOC_FONT+'color:#000;position:relative;box-sizing:border-box;width:'+(land?'277':'190')+'mm;height:'+(land?'188':'274')+'mm;overflow:hidden">'+inner+'</div>';
+}
+function rpFlow(inner){ return '<div style="'+DOC_FONT+'color:#000;box-sizing:border-box;width:190mm;min-height:268mm">'+inner+'</div>'; }
+function rpHead(lines, size, mb){
+  return '<div style="text-align:center;font-weight:700;font-size:'+(size||13)+'pt;line-height:1.25;margin:0 0 '+(mb==null?2:mb)+'mm">'+lines.map(function(x){ return x; }).join('<br>')+'</div>';
+}
+function rpSign(land){
+  return '<div style="position:absolute;left:0;right:0;bottom:0;text-align:center;font-weight:700;font-size:12pt;line-height:1.2">ลงชื่อ....................................................ครูประจำชั้น/ครูประจำวิชา</div>';
+}
+function rpCg(w){ var s = w.reduce(function(a,b){ return a+b; }, 0); return '<colgroup>'+w.map(function(x){ return '<col style="width:'+(x/s*100).toFixed(3)+'%">'; }).join('')+'</colgroup>'; }
+function rpTbl(w, inner, fs){ return '<table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:'+(fs||11)+'pt;line-height:1.1;'+DOC_FONT+'">'+rpCg(w)+inner+'</table>'; }
+function td(v, o){
+  o = o || {};
+  return '<td data-f="1"'+(o.cs?' colspan="'+o.cs+'"':'')+(o.rs?' rowspan="'+o.rs+'"':'')+' style="'+RB+'text-align:'+(o.a||'center')+';padding:0 '+(o.a==='left'?'1.2':'0.4')+'mm;overflow:hidden;white-space:'+(o.wrap?'normal':'nowrap')+';vertical-align:middle;'+(o.b?'font-weight:700;':'')+(o.st||'')+'">'+(o.raw ? v : esc(v==null?'':v))+'</td>';
+}
+function tdRot(txt, mm, o){
+  o = o || {};
+  var fs = o.fs || (String(txt).length > 22 ? 8 : (String(txt).length > 14 ? 9.5 : 11));
+  return '<td'+(o.rs?' rowspan="'+o.rs+'"':'')+' style="'+RB+'padding:0;overflow:hidden;vertical-align:middle;text-align:center"><div style="writing-mode:vertical-rl;transform:rotate(180deg);margin:0 auto;white-space:nowrap;overflow:hidden;font-weight:700;font-size:'+fs+'pt;height:'+mm+'mm;line-height:1.05">'+esc(txt)+'</div></td>';
+}
+function trH(mm, cells, extra){ return '<tr style="height:'+mm+'mm;'+(extra||'')+'">'+cells+'</tr>'; }
+// จำนวนแถว/ความสูงแถว ให้ตารางเต็มหน้าพอดี
+function rpFit(n, availMm, rowMm, minRows){
+  var cap = Math.max(minRows||0, Math.floor(availMm / rowMm)), cnt = Math.max(n, cap), h = availMm / cnt;
+  return {cnt: cnt, h: Math.round(h*100)/100, fs: Math.max(7.5, Math.min(11, Math.round((h/0.3528/1.2 - 0.3)*2)/2))};
+}
+function rpTitleLine(b){ return 'ชั้น'+levelName(b.report.classLevel)+' ปีการศึกษา '+b.year; }
+function dashIf0(n){ return n ? String(n) : '-'; }
+
+/* ---------- 1) รายชื่อนักเรียน ---------- */
+function rpStudents(b){
+  var L = b.info.students, f = rpFit(L.length, 274-9-8-9, 5.3);
+  var head = trH(8, td('เลขที่',{b:1})+td('เลขประจำตัวนักเรียน',{b:1})+td('ชื่อ-สกุล',{b:1})+td('เลขประจำตัวประชาชน',{b:1})+td('วัน/เดือน/ปีเกิด',{b:1}));
+  var rows = []; for(var i=0;i<f.cnt;i++){ var s = L[i];
+    rows.push(trH(f.h, td(s?s.no:'')+td(s?s.stuCode:'')+td(s?sName(s):'',{a:'left'})+td(s?s.idCard:'')+td(s?dSlash(s.birth):'',{a:'right'}))); }
+  return rpPage(rpHead(['รายชื่อนักเรียน '+rpTitleLine(b)], 12) + rpTbl([7,17,29,23,24], head+rows.join(''), f.fs) + rpSign());
+}
+/* ---------- 2) บิดา-มารดา ---------- */
+function rpParents(b){
+  var L = b.info.students, f = rpFit(L.length, 274-9-8-9, 5.3);
+  var head = trH(8, td('เลขที่',{b:1})+td('ชื่อ-สกุล บิดา',{b:1})+td('อาชีพ',{b:1})+td('ชื่อ-สกุล มารดา',{b:1})+td('อาชีพ',{b:1}));
+  var rows = []; for(var i=0;i<f.cnt;i++){ var s = L[i];
+    rows.push(trH(f.h, td(s?s.no:'')+td(s?s.father:'',{a:'left'})+td(s?s.fatherJob:'',{st:'font-size:'+Math.min(f.fs,10)+'pt'})+td(s?s.mother:'',{a:'left'})+td(s?s.motherJob:'',{st:'font-size:'+Math.min(f.fs,10)+'pt'}))); }
+  return rpPage(rpHead([rpTitleLine(b)], 12) + rpTbl([6,27,18,27,18], head+rows.join(''), f.fs) + rpSign());
+}
+/* ---------- 3) ผู้ปกครอง ---------- */
+function rpGuardians(b){
+  var L = b.info.students, f = rpFit(L.length, 274-9-8-9, 5.3);
+  var head = trH(8, td('เลขที่',{b:1})+td('ผู้ปกครอง',{b:1})+td('ความเกี่ยวข้อง',{b:1})+td('อาชีพ',{b:1})+td('ที่อยู่ปัจจุบันของนักเรียน',{b:1}));
+  var rows = []; for(var i=0;i<f.cnt;i++){ var s = L[i];
+    rows.push(trH(f.h, td(s?s.no:'')+td(s?s.guardian:'',{a:'left'})+td(s?s.guardianRel:'')+td(s?s.guardianJob:'',{st:'font-size:'+Math.min(f.fs,10)+'pt'})+td(s?s.address:'',{a:'left',st:'font-size:'+Math.min(f.fs,10)+'pt'}))); }
+  return rpPage(rpHead([rpTitleLine(b)], 12) + rpTbl([6,26,12,16,40], head+rows.join(''), f.fs) + rpSign());
+}
+
+/* ---------- 4) เวลาเรียน ---------- */
+function rpAttMonth(d, m, b){
+  var n = d.students.length, f = rpFit(n, 274-17-6-9, 5.3), w = [6], day = [], i;
+  for(i=0;i<31;i++) w.push(3); w.push(3.4,3.4,3.4,3.4);
+  var h1 = td('วันที่',{b:1}); for(i=1;i<=31;i++) h1 += td(i,{b:1,st:'font-size:9pt'}); h1 += td('ม',{b:1})+td('ป',{b:1})+td('ล',{b:1})+td('ข',{b:1});
+  var rows = [];
+  for(var r=0;r<f.cnt;r++){ var s = d.students[r], mk = s ? (d.marks[s.studentId+'|'+m.ym] || '') : '', c = s ? monthCounts(mk, m.days) : null, t = s ? td(s.no) : td('');
+    for(i=0;i<31;i++){ var ch = i < m.nd ? mk.charAt(i) : ''; t += td(s && ch && ch!=='-' ? (ch==='ม'?'1':ch) : '', {st:'font-size:9pt'}); }
+    t += s ? td(dashIf0(c.m))+td(dashIf0(c.p))+td(dashIf0(c.l))+td(dashIf0(c.k)) : td('')+td('')+td('')+td('');
+    rows.push(trH(f.h, t)); }
+  return rpPage(rpHead(['เวลาเรียน '+rpTitleLine(b), 'เดือน &nbsp;&nbsp;&nbsp;'+esc(m.label)+' &nbsp;&nbsp;&nbsp;&nbsp;พ.ศ. '+esc(m.be)], 12) + rpTbl(w, trH(6.5, h1)+rows.join(''), f.fs) + rpSign());
+}
+function rpAttSum(d, term, b){
+  var months = d.months.filter(function(m){ return term==='all' || m.term===term; });
+  var hasData = function(m){ return d.students.some(function(s){ var mk = d.marks[s.studentId+'|'+m.ym]; return mk && /[^-]/.test(mk); }); };
+  var full = 0; months.forEach(function(m){ if(hasData(m)) for(var i=0;i<31;i++) if(m.days.charAt(i)==='1') full++; });
+  var n = d.students.length, f = rpFit(n, 274-8-14-9, 5.3), nm = months.length;
+  var w = [1]; months.forEach(function(){ w.push(1); }); w.push(1,1,1.5);
+  var head = trH(7, td('เลขที่',{rs:2,b:1})+months.map(function(m){ return td(TH_M[Number(m.ym.slice(5))],{rs:2,b:1}); }).join('')+td(term==='all'?'ตลอดปีการศึกษา':'ภาคเรียนที่ '+term,{cs:3,b:1}))
+    + trH(7, td('เต็ม',{b:1})+td('มา',{b:1})+td('ร้อยละ',{b:1}));
+  var rows = [];
+  for(var r=0;r<f.cnt;r++){ var s = d.students[r], t = td(s?s.no:''), got = 0;
+    months.forEach(function(m){ if(!s){ t += td(''); return; } if(!hasData(m)){ t += td('-'); return; } var c = monthCounts(d.marks[s.studentId+'|'+m.ym], m.days); got += c.m; t += td(c.m); });
+    t += s ? td(full||'-')+td(got)+td(full ? rp2(got/full*100) : '-') : td('')+td('')+td('');
+    rows.push(trH(f.h, t)); }
+  var ttl = term==='all' ? 'สรุปเวลาเรียน '+rpTitleLine(b) : 'สรุปเวลาเรียน ชั้น'+levelName(b.report.classLevel)+' ภาคเรียนที่ '+term+' ปีการศึกษา '+b.year;
+  return rpPage(rpHead([ttl], 12) + rpTbl(w, head+rows.join(''), f.fs) + rpSign());
+}
+function rpAttPages(b){
+  var d = b.att, pgs = [];
+  C.cl = b.report.classLevel;
+  d.months.forEach(function(m){ if(d.students.some(function(s){ var mk = d.marks[s.studentId+'|'+m.ym]; return mk && /[^-]/.test(mk); })) pgs.push({o:'port', h: rpAttMonth(d, m, b)}); });
+  ['1','2','all'].forEach(function(t){ pgs.push({o:'port', h: rpAttSum(d, t, b)}); });
+  return pgs;
+}
+
+/* ---------- 5) น้ำหนัก-ส่วนสูง / โภชนาการ ---------- */
+function rpHW(b){
+  var hw = b.health, S0 = hw.students, rec = {}, dates = {};
+  hw.records.forEach(function(r){ rec[r.studentId+'|'+r.term+'|'+r.round] = r; if(r.date && !dates[r.term+'|'+r.round]) dates[r.term+'|'+r.round] = r.date; });
+  var f = rpFit(S0.length, 274-14-26.5-6.5-9, 5.3), w = [10]; for(var i=0;i<8;i++) w.push(10);
+  var head = trH(7, td('การประเมิน',{rs:3,b:1})+td('ภาคเรียนที่ 1',{cs:4,b:1})+td('ภาคเรียนที่ 2',{cs:4,b:1}))
+    + trH(6.5, td('ครั้งที่ 1',{cs:2,b:1})+td('ครั้งที่ 2',{cs:2,b:1})+td('ครั้งที่ 1',{cs:2,b:1})+td('ครั้งที่ 2',{cs:2,b:1}))
+    + trH(6.5, [0,1,2,3].map(function(){ return td('น้ำหนัก',{b:1})+td('ส่วนสูง',{b:1}); }).join(''))
+    + trH(6.5, td('เลขที่/วันที่',{b:1}) + HW_GROUPS.map(function(g){ var dt = dateShortOr(dates[g.join('|')]); return td(dt,{b:1,st:'font-size:9.5pt'})+td(dt,{b:1,st:'font-size:9.5pt'}); }).join(''));
+  var sums = []; for(i=0;i<8;i++) sums.push({s:0,n:0});
+  var rows = [];
+  for(var r=0;r<f.cnt;r++){ var s = S0[r], t = td(s?s.no:'');
+    HW_GROUPS.forEach(function(g, gi){ ['weight','height'].forEach(function(k, ki){ var x = s ? rec[s.studentId+'|'+g[0]+'|'+g[1]] : null, v = x ? x[k] : '';
+      t += td(s ? nz(v) : '', {});
+      if(s && !s.status && v!=='' && v!=null && !isNaN(Number(v))){ var q = sums[gi*2+ki]; q.s += Number(v); q.n++; } }); });
+    rows.push(trH(f.h, t)); }
+  var avg = trH(6.5, td('เฉลี่ย',{b:1}) + sums.map(function(q){ return td(q.n ? rp2(q.s/q.n) : '',{b:1}); }).join(''));
+  return rpPage(rpHead(['น้ำหนัก - ส่วนสูง', rpTitleLine(b)], 13) + rpTbl(w, head+rows.join('')+avg, f.fs) + rpSign());
+}
+function dateShortOr(x){ return x ? dShort(x) : ''; }
+function rpNutHead(b, g, dt, ttl, withSchool){
+  return '<div style="text-align:center;font-weight:700;line-height:1.3;font-size:13pt;margin-bottom:1mm">'+ttl.map(function(x,i){ return '<div style="font-size:'+(i===0?'15pt':'12.5pt')+'">'+x+'</div>'; }).join('')+(withSchool?'<div style="font-size:12.5pt">'+esc(b.school)+' '+AREA_OFFICE+'</div>':'')+'</div>'
+    + '<div style="display:flex;justify-content:space-around;font-weight:700;font-size:12pt;padding-bottom:1.5mm;border-bottom:3px double #000;margin-bottom:2mm"><span>ภาคเรียนที่ &nbsp;&nbsp;&nbsp;'+esc(g[0])+'</span><span>ครั้งที่ &nbsp;&nbsp;&nbsp;'+esc(g[1])+'</span><span>วันที่ชั่งน้ำหนัก/วัดส่วนสูง &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'+esc(dFull(dt))+'</span></div>';
+}
+function rpNutAssess(b, nd, g, dt){
+  var n = nd.rows.length, f = rpFit(n, 274-24-6-17-9, 5.3);
+  var head = trH(7, td('ข้อมูลนักเรียน',{cs:7,b:1})+td('ผลการประเมินภาวะโภชนาการ<br>ตามเกณฑ์มาตรฐานของกรมอนามัย กระทรวงสาธารณสุข',{cs:3,b:1,raw:1,wrap:1,st:'font-size:9pt'}))
+    + trH(6, td('เลขที่',{rs:2,b:1})+td('ชื่อ-สกุล',{rs:2,b:1})+td('เพศ',{rs:2,b:1})+td('อายุ',{cs:2,b:1})+td('น้ำหนัก',{b:1})+td('ส่วนสูง',{b:1})+td('น้ำหนัก',{b:1})+td('ส่วนสูง',{b:1})+td('น้ำหนัก',{b:1}))
+    + trH(6, td('ปี',{b:1})+td('เดือน',{b:1})+td('(ก.ก.)',{b:1,st:'font-size:8.5pt'})+td('(ซ.ม.)',{b:1,st:'font-size:8.5pt'})+td('ตามเกณฑ์อายุ',{b:1,st:'font-size:9pt'})+td('ตามเกณฑ์อายุ',{b:1,st:'font-size:9pt'})+td('ตามเกณฑ์ส่วนสูง',{b:1,st:'font-size:9pt'}));
+  var rows = [];
+  for(var r=0;r<f.cnt;r++){ var x = nd.rows[r], s = x && x.s, am = x ? x.res.ageM : '';
+    rows.push(trH(f.h, td(s?s.no:'')+td(s?s.name:'',{a:'left'})+td(s?s.sex:'')+td(x&&am!==''&&am!=null?Math.floor(am/12):'')+td(x&&am!==''&&am!=null?dashIf0(am%12):'')+td(x?nz(x.w):'')+td(x?nz(x.h):'')+td(x?x.res.wa||'':'',{st:'font-size:9.5pt'})+td(x?x.res.ha||'':'',{st:'font-size:9.5pt'})+td(x?x.res.wh||'':'',{st:'font-size:9.5pt'}))); }
+  return rpPage(rpNutHead(b, g, dt, ['ผลการประเมินภาวะโภชนาการ', rpTitleLine(b).replace(/^ชั้น/,'ชั้น')], false) + rpTbl([5,22,6,5,6,7,7,14,14,14], head+rows.join(''), f.fs) + rpSign());
+}
+function rpNutPrev(b, nd, g, dt){
+  var total = sexCount(nd.act, function(){ return true; }), rr = nd.rows.map(function(x){ return {sex:x.s.sex, res:x.res}; }), blocks = '';
+  var lab = {wa:'น้ำหนักตามเกณฑ์อายุ', ha:'ส่วนสูงตามเกณฑ์อายุ', wh:'น้ำหนักตามเกณฑ์ส่วนสูง'};
+  var rep = {wa:{'น้ำหนักน้อยกว่าเกณฑ์':'** ส่งรายงาน **'}, ha:{'เตี้ย':'** ส่งรายงาน **'}, wh:{'อ้วน':'* รวมกัน *','เริ่มอ้วน':'**ส่งรายงาน**','ผอม':'** ส่งรายงาน **'}};
+  var cell = function(v, o){ return td(v, o); };
+  var tr = '';
+  ['wa','ha','wh'].forEach(function(key){
+    var def = NUT_DEF[key], measured = sexCount(rr, function(x){ return x.res[key]; }), miss = {m:total.m-measured.m, w:total.w-measured.w, t:total.t-measured.t};
+    var items = def.rows.slice(); if(key==='wh') items.splice(5, 0, ['ส่วนสูงเกินฐานข้อมูล','']);
+    var first = items.length + 3;
+    tr += trH(9, td(lab[key],{cs:2,b:1})+td('ชาย<br>(คน)',{b:1,raw:1,wrap:1})+td('หญิง<br>(คน)',{b:1,raw:1,wrap:1})+td('รวม<br>(คน)',{b:1,raw:1,wrap:1})+td('ภาวะโภชนาการ<br>(%)',{b:1,raw:1,wrap:1,st:'font-size:9pt'})+td('ความครอบคลุม<br>(%)',{b:1,raw:1,wrap:1,st:'font-size:9pt'}));
+    items.forEach(function(r){
+      var c = sexCount(rr, function(x){ return x.res[key]===r[0]; });
+      tr += trH(7.4, td('- '+r[0]+(rep[key][r[0]] && key==='wh' && r[0]==='อ้วน' ? '' : ''),{a:'left',st:'border-right:0'})+td(r[1]+'&nbsp;&nbsp;&nbsp;'+(rep[key][r[0]]||''),{a:'left',raw:1,st:'border-left:0;font-size:9.5pt'})+td(c.m)+td(c.w)+td(c.t)+td(measured.t ? rp2(c.t/measured.t*100) : '0.00',{b:1})+td(''));
+    });
+    tr += trH(7, td('จำนวนนักเรียนที่ ชั่ง นน./วัดส่วนสูง',{cs:2,a:'left',b:1})+td(measured.m,{b:1})+td(measured.w,{b:1})+td(measured.t,{b:1})+td('')+td(total.t ? rp2(measured.t/total.t*100) : '0.00',{b:1}));
+    tr += trH(7, td('จำนวนนักเรียนที่ข้อมูลไม่ครบ',{cs:2,a:'left',b:1})+td(miss.m,{b:1})+td(miss.w,{b:1})+td(miss.t,{b:1})+td('')+td(total.t ? rp2(miss.t/total.t*100) : '0.00',{b:1}));
+    tr += trH(7, td('จำนวนนักเรียนทั้งหมด',{cs:2,a:'left',b:1})+td(total.m,{b:1})+td(total.w,{b:1})+td(total.t,{b:1})+td('')+td(total.t ? '100.00' : '0.00',{b:1}));
+    tr += trH(3, '<td colspan="7" style="border:0"></td>');
+  });
+  return rpPage(rpNutHead(b, g, dt, ['อัตราความชุกของปัญหาโภชนาการ', rpTitleLine(b)], true) + rpTbl([14,19,8,8,8,13,13], tr, 11.5) + rpSign());
+}
+function rpNutProblems(b, nd, g, dt){
+  var cols = [['น้ำหนักน้อยกว่าเกณฑ์','wa'],['เตี้ย','ha'],['อ้วน','wh'],['เริ่มอ้วน','wh'],['ผอม','wh']];
+  var lists = cols.map(function(c){ return nd.rows.filter(function(x){ return x.res[c[1]]===c[0]; }).map(function(x){ return x.s.name; }); });
+  var n = Math.max.apply(null, lists.map(function(l){ return l.length; }).concat([0])), f = rpFit(n, 274-27-16-7-9, 5.3);
+  var head = trH(7, cols.map(function(c){ return td(c[0],{b:1}); }).join(''));
+  var rows = []; for(var r=0;r<f.cnt;r++) rows.push(trH(f.h, lists.map(function(l){ return td(l[r]||'',{a:'left',st:'font-size:'+Math.min(f.fs,10)+'pt'}); }).join('')));
+  var hd = '<div style="text-align:center;font-weight:700;line-height:1.3"><div style="font-size:15pt">สรุปรายชื่อนักเรียนที่มีปัญหาโภชนาการ</div><div style="font-size:12.5pt">'+rpTitleLine(b)+'</div><div style="font-size:12.5pt">'+esc(b.school)+' '+AREA_OFFICE+'</div></div>'
+    + '<div style="display:flex;justify-content:space-around;font-weight:700;font-size:12pt;padding:1mm 0 1.5mm;border-bottom:3px double #000;margin-bottom:2mm"><span>ภาคเรียนที่ &nbsp;&nbsp;&nbsp;'+esc(g[0])+'</span><span>ครั้งที่ &nbsp;&nbsp;&nbsp;'+esc(g[1])+'</span><span>วันที่ชั่งน้ำหนัก/วัดส่วนสูง &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'+esc(dFull(dt))+'</span></div>'
+    + '<div style="text-align:center;font-weight:700;font-size:13pt;border:1px solid #000;border-bottom:0;padding:1mm 0">นักเรียนที่มีปัญหาโภชนาการ จำแนกตามเกณฑ์มาตรฐาน</div>';
+  return rpPage(hd + rpTbl([1,1,1,1,1], head+rows.join(''), f.fs) + rpSign());
+}
+function rpNutPages(b){
+  var pgs = [], hw = b.health, rec = {}, dates = {};
+  hw.records.forEach(function(r){ rec[r.studentId+'|'+r.term+'|'+r.round] = {weight: nz(r.weight), height: nz(r.height), ageM: nz(r.ageM)}; if(r.date && !dates[r.term+'|'+r.round]) dates[r.term+'|'+r.round] = r.date; });
+  pgs.push({o:'port', h: rpHW(b)});
+  HW_GROUPS.forEach(function(g){
+    if(!hw.records.some(function(r){ return r.term===g[0] && r.round===g[1] && (r.weight!==''||r.height!==''); })) return;
+    var nd = nutDataFor(hw, rec, g), dt = dates[g.join('|')] || '';
+    pgs.push({o:'port', h: rpNutAssess(b, nd, g, dt)});
+    pgs.push({o:'port', h: rpNutPrev(b, nd, g, dt)});
+    pgs.push({o:'port', h: rpNutProblems(b, nd, g, dt)});
+  });
+  return pgs;
+}
+
+/* ---------- 6) สรุปผลสัมฤทธิ์ / ระดับผลการเรียน / คะแนนผลการเรียน ---------- */
+var SUBJ_ORD = 'ทควสพศงอ';
+function rpScoreSubjects(rep){
+  return rep.subjects.filter(function(s){ return s.kind !== 'pass'; }).map(function(s, i){ return {s:s, i:i}; })
+    .sort(function(a,b){ var x = SUBJ_ORD.indexOf((a.s.code||'').charAt(0)), y = SUBJ_ORD.indexOf((b.s.code||'').charAt(0)); x = x<0?99:x; y = y<0?99:y; return x-y || a.i-b.i; }).map(function(o){ return o.s; });
+}
+function rpSignBlock(rep, land){
+  var nm = rep.names || {}, tch = (rep.teachers && rep.teachers.length) ? rep.teachers.join(' / ') : '';
+  var one = function(nmTxt, role, w){ return '<div style="text-align:center;width:'+w+'">ลงชื่อ....................................................<br>('+esc(nmTxt||'....................................')+')<br>'+role+'</div>'; };
+  return '<div style="font-size:11.5pt;line-height:1.35;margin-top:4mm"><div style="display:flex;justify-content:space-between;padding:0 14mm">'+one(tch,'ครูประจำชั้น/ครูที่ปรึกษา','90mm')+one(nm.academic,'หัวหน้างานวิชาการโรงเรียน','90mm')+'</div>'
+    + '<div style="display:flex;justify-content:center;margin-top:3mm">'+one(nm.director,'ผู้อำนวยการ'+esc(rep.school),'110mm')+'</div></div>';
+}
+function rpSumAch(b){
+  var rep = b.report, subs = rpScoreSubjects(rep), act = rep.students.filter(function(s){ return !s.status; }), G = ['มส','ร','0','1','1.5','2','2.5','3','3.5','4'];
+  var f = rpFit(subs.length, 188-20-19-34-4, 5.6, 14);
+  var w = [20,3,3,3]; G.forEach(function(){ w.push(3.3,4.4); });
+  var head = trH(7, td('รายวิชา',{rs:3,b:1,st:'font-size:12pt'})+td('จำนวนนักเรียน',{cs:3,b:1})+td('ระดับผลการเรียน',{cs:20,b:1}))
+    + trH(7, td('เข้าสอบ',{cs:3,b:1})+G.map(function(g){ return td(g,{cs:2,b:1}); }).join(''))
+    + trH(6, td('ชาย',{b:1})+td('หญิง',{b:1})+td('รวม',{b:1})+G.map(function(){ return td('จำนวน',{b:1,st:'font-size:7.5pt'})+td('%',{b:1,st:'font-size:7.5pt'}); }).join(''));
+  var rows = [];
+  for(var r=0;r<f.cnt;r++){ var s = subs[r], t = '';
+    if(s){ var m = act.filter(function(x){ return x.sex==='ชาย'; }).length, fe = act.filter(function(x){ return x.sex==='หญิง'; }).length, tot = act.length;
+      t = td(s.code+' '+s.name,{a:'left',st:'font-size:10pt'})+td(m)+td(fe)+td(tot);
+      G.forEach(function(g){ var c = 0; act.forEach(function(x){ var q = x.results[s.key]; if(q && String(q.grade)===g) c++; }); t += td(c)+td(tot ? rp2(c/tot*100) : '0.00'); });
+    } else { t = td('',{a:'left'})+td('')+td('')+td(''); G.forEach(function(){ t += td('')+td(''); }); }
+    rows.push(trH(f.h, t, 'font-size:9.5pt')); }
+  return rpPage(rpHead(['สรุปผลการประเมินผลสัมฤทธิ์ทางการเรียน', 'ชั้น'+levelName(rep.classLevel)+' ปีการศึกษา '+b.year, esc(b.school)+' '+AREA_OFFICE], 13, 2) + rpTbl(w, head+rows.join(''), 10) + rpSignBlock(rep), true);
+}
+function rpRank(vals, ids){   // vals: {id: number}; คืน {id: rank}
+  var arr = ids.filter(function(i){ return vals[i] != null; }).sort(function(a,b){ return vals[b]-vals[a]; }), out = {}, rk = 0, prev = null;
+  arr.forEach(function(id, i){ if(vals[id] !== prev){ rk = i+1; prev = vals[id]; } out[id] = rk; });
+  return out;
+}
+function rpSubjHeads(subs, nCol, mm){ var s = ''; for(var i=0;i<nCol;i++) s += subs[i] ? tdRot(subs[i].name, mm) : td(''); return s; }
+function rpLevels(b){
+  var rep = b.report, subs = rpScoreSubjects(rep), nCol = Math.max(subs.length, 12), n = rep.students.length;
+  var f = rpFit(n, 274-14-9-36-9, 5.3), w = [6,25]; for(var i=0;i<nCol;i++) w.push(4.4); w.push(9,8);
+  var head = trH(7, td('เลขที่',{rs:2,b:1})+td('ชื่อ-สกุล',{rs:2,b:1})+td('ระดับผลการเรียน',{cs:nCol,b:1})+td('ผลการเรียน<br>เฉลี่ย',{rs:2,b:1,raw:1,wrap:1,st:'font-size:9pt'})+td('ลำดับที่<br>ผลการเรียนเฉลี่ย',{rs:2,b:1,raw:1,wrap:1,st:'font-size:8pt'}))
+    + trH(36, rpSubjHeads(subs, nCol, 34));
+  var rows = [];
+  for(var r=0;r<f.cnt;r++){ var s = rep.students[r], t = td(s?s.no:'')+td(s?sName(s):'',{a:'left'});
+    for(i=0;i<nCol;i++){ var q = s && subs[i] ? s.results[subs[i].key] : null; t += td(q ? gShow(q.grade) : ''); }
+    t += td(s && s.gpa!=='' ? rp2(s.gpa) : '')+td(s ? gShow(s.rank) : '');
+    rows.push(trH(f.h, t)); }
+  return rpPage(rpHead(['ผลการพัฒนาคุณภาพผู้เรียน ระดับ'+'ชั้น'+levelName(rep.classLevel)+' ปีการศึกษา '+b.year, esc(b.school)], 12, 1).replace('text-align:center','text-align:left') + rpTbl(w, head+rows.join(''), f.fs) + rpSign());
+}
+function rpScores(b){
+  var rep = b.report, subs = rpScoreSubjects(rep), nCol = Math.max(subs.length, 12), n = rep.students.length, ids = rep.students.filter(function(s){ return !s.status; }).map(function(s){ return s.studentId; });
+  var totals = {}, nS = subs.length;
+  rep.students.forEach(function(s){ var t = 0, c = 0; subs.forEach(function(x){ var q = s.results[x.key]; if(q && q.total!=null && q.total!==''){ t += Number(q.total); c++; } }); if(c) totals[s.studentId] = t; });
+  var rk = rpRank(totals, ids);
+  var f = rpFit(n, 274-14-9-36-6-17-9, 5.3), w = [6,25]; for(var i=0;i<nCol;i++) w.push(4.4); w.push(7.5,7.5,8);
+  var head = trH(7, td('เลขที่',{rs:3,b:1})+td('ชื่อ-สกุล',{rs:3,b:1})+td('คะแนนผลการเรียน',{cs:nCol,b:1})+td('รวม',{rs:2,b:1})+td('ร้อยละ',{rs:2,b:1})+td('ลำดับที่<br>คะแนนรวม',{rs:3,b:1,raw:1,wrap:1,st:'font-size:8pt'}))
+    + trH(36, rpSubjHeads(subs, nCol, 34))
+    + trH(6, (function(){ var s = ''; for(var j=0;j<nCol;j++) s += td(subs[j] ? '100' : '', {b:1,st:'font-size:9pt'}); return s; })()+td(nS ? rpInt(nS*100) : '',{b:1,st:'font-size:9pt'})+td(nS ? '100.00' : '',{b:1,st:'font-size:9pt'}));
+  var rows = [], sum = [], cnt = [], gT = 0, gN = 0, gP = 0; for(i=0;i<nCol;i++){ sum.push(0); cnt.push(0); }
+  for(var r=0;r<f.cnt;r++){ var s = rep.students[r], t = td(s?s.no:'')+td(s?sName(s):'',{a:'left'});
+    for(i=0;i<nCol;i++){ var q = s && subs[i] ? s.results[subs[i].key] : null, v = q && q.total!=null && q.total!=='' ? Number(q.total) : null; t += td(v==null ? '' : Math.round(v));
+      if(v!=null && s && !s.status){ sum[i] += v; cnt[i]++; } }
+    var tt = s ? totals[s.studentId] : null; t += td(tt==null?'':rpInt(Math.round(tt)))+td(tt==null||!nS?'':rp2(tt/(nS*100)*100))+td(s&&rk[s.studentId]?rk[s.studentId]:'');
+    if(tt!=null && !s.status){ gT += tt; gN++; gP += tt/(nS*100)*100; }
+    rows.push(trH(f.h, t)); }
+  var foot = function(lab, fn, ex){ var t = td(lab,{cs:2,b:1}); for(var j=0;j<nCol;j++) t += td(cnt[j] ? fn(sum[j], cnt[j]) : '',{st:'font-size:9pt'}); return trH(5.6, t + ex + td('')); };
+  var bot = foot('รวม', function(s){ return rpInt(Math.round(s)); }, td(gN?rpInt(Math.round(gT)):'',{st:'font-size:9pt'})+td(gN?rp2(gP):'',{st:'font-size:9pt'}))
+    + foot('เฉลี่ย', function(s,c){ return rp2(s/c); }, td(gN?rp2(gT/gN):'',{st:'font-size:9pt'})+td(gN?rp2(gP/gN):'',{st:'font-size:9pt'}))
+    + foot('เฉลี่ย %', function(s,c){ return rp2(s/c); }, td(gN?rp2(gT/gN/(nS||1)):'',{st:'font-size:9pt'})+td(gN?rp2(gP/gN):'',{st:'font-size:9pt'}));
+  return rpPage(rpHead(['ผลการพัฒนาคุณภาพผู้เรียน ระดับ'+'ชั้น'+levelName(rep.classLevel)+' ปีการศึกษา '+b.year, esc(b.school)], 12, 1).replace('text-align:center','text-align:left') + rpTbl(w, head+rows.join('')+bot, f.fs) + rpSign());
+}
+
+/* ---------- 7) กิจกรรมพัฒนาผู้เรียน ---------- */
+function rpActs(b){
+  var rep = b.report, rt = b.ratings, names = rep.actNames || RATE_CFG.act[0].labels, na = names.length, n = rt.students.length;
+  var f = rpFit(n, 274-8-14-12-9, 5.3), w = [8]; for(var i=0;i<na*2;i++) w.push(11);
+  var head = trH(8, td('เลขที่',{rs:2,b:1})+names.map(function(x){ return td(x,{cs:2,b:1,wrap:1,st:'font-size:10pt'}); }).join(''))
+    + trH(6, names.map(function(){ return td('ไม่ผ่าน',{b:1})+td('ผ่าน',{b:1}); }).join(''));
+  var pass = [], fail = []; for(i=0;i<na;i++){ pass.push(0); fail.push(0); }
+  var rows = [];
+  for(var r=0;r<f.cnt;r++){ var s = rt.students[r], arr = s ? (rt.data[s.studentId+'|act'] || []) : [], t = td(s?s.no:'');
+    for(i=0;i<na;i++){ var v = arr[i]; t += td(s && v===0 ? '/' : '')+td(s && v===1 ? '/' : '');
+      if(s && !s.status){ if(v===1) pass[i]++; else if(v===0) fail[i]++; } }
+    rows.push(trH(f.h, t)); }
+  var tot = trH(6, td('รวม',{b:1})+names.map(function(_,j){ return td(fail[j],{b:1})+td(pass[j],{b:1}); }).join(''))
+    + trH(6, td('ร้อยละ',{b:1})+names.map(function(_,j){ var s = fail[j]+pass[j]; return td(s?rp2(fail[j]/s*100):'0.00',{b:1})+td(s?rp2(pass[j]/s*100):'0.00',{b:1}); }).join(''));
+  return rpPage(rpHead(['สรุปการประเมินกิจกรรมพัฒนาผู้เรียน '+rpTitleLine(b)], 11) + rpTbl(w, head+rows.join('')+tot, f.fs) + rpSign());
+}
+
+/* ---------- 8) คุณลักษณะ / อ่านคิดเขียน · ค่านิยม / สมรรถนะ ---------- */
+function rpMode(vals){ var c = {}, best = null, bc = 0; vals.forEach(function(v){ if(v===''||v==null) return; c[v] = (c[v]||0)+1; }); Object.keys(c).forEach(function(k){ if(c[k] > bc || (c[k]===bc && Number(k) > Number(best))){ bc = c[k]; best = k; } }); return best==null ? '' : best; }
+function rpRating(b, kA, kB, title, shortA, shortB){
+  var rt = b.ratings, rep = b.report, n = rt.students.length, nA = RATE_CFG[kA==='trait'?'trait':'value'][0].labels.length, nB = 5;
+  RATE_FRAC = rt.frac || RATE_FRAC;
+  var f = rpFit(n, 274-8-52-14-8-9, 5.3), w = [5];
+  var colW = nA > 8 ? 3.1 : 4.3;
+  for(var i=0;i<nA;i++) w.push(colW); w.push(1.2); w.push(4.6,4.6,4.6,4.6); for(i=0;i<nB;i++) w.push(colW); w.push(4.6,4.6,4.6,4.6);
+  var hdrMm = 34;
+  var head;
+  head = trH(7, td('เลขที่',{rs:2,b:1})+td(title[0],{cs:nA+1,b:1,rs:1})+td('ผลการประเมิน',{cs:4,b:1})+td(title[1],{cs:nB,b:1})+td('ผลการประเมิน',{cs:4,b:1}))
+    + trH(hdrMm, shortA.map(function(x){ return tdRot(x, hdrMm-2, {fs:nA>8?8.5:10}); }).join('')+td('')+RATE_LBL.map(function(x){ return tdRot(x, hdrMm-2, {fs:9.5}); }).join('')
+        + shortB.map(function(x){ return tdRot(x, hdrMm-2, {fs:10}); }).join('')+RATE_LBL.map(function(x){ return tdRot(x, hdrMm-2, {fs:9.5}); }).join(''));
+  var kindA = kA, kindB = kB, valsA = [], valsB = [], resA = [0,0,0,0], resB = [0,0,0,0], j;
+  for(j=0;j<nA;j++) valsA.push([]); for(j=0;j<nB;j++) valsB.push([]);
+  var rows = [];
+  for(var r=0;r<f.cnt;r++){ var s = rt.students[r], t = td(s?s.no:'');
+    var ra = s ? (rt.data[s.studentId+'|'+kindA] || []) : [], rb = s ? (rt.data[s.studentId+'|'+kindB] || []) : [];
+    var fill = function(arr, n2){ var o = []; for(var q=0;q<n2;q++) o.push(arr[q]===undefined?'':arr[q]); return o; };
+    var fa = fill(ra, nA), fb = fill(rb, nB), oa = s ? rateOverall(fa, nA) : '', ob = s ? rateOverall(fb, nB) : '';
+    fa.forEach(function(v, q){ t += td(s ? v : ''); if(s && !s.status && v!=='') valsA[q].push(v); });
+    t += td('');
+    [0,1,2,3].forEach(function(q){ t += td(s && oa===q ? '/' : ''); if(s && !s.status && oa===q) resA[q]++; });
+    fb.forEach(function(v, q){ t += td(s ? v : ''); if(s && !s.status && v!=='') valsB[q].push(v); });
+    [0,1,2,3].forEach(function(q){ t += td(s && ob===q ? '/' : ''); if(s && !s.status && ob===q) resB[q]++; });
+    rows.push(trH(f.h, t)); }
+  var mode = trH(6.5, td('ฐานนิยม',{b:1,st:'font-size:8pt'})+valsA.map(function(v){ return td(rpMode(v),{b:1}); }).join('')+td('')+resA.map(function(v){ return td(v,{b:1}); }).join('')+valsB.map(function(v){ return td(rpMode(v),{b:1}); }).join('')+resB.map(function(v){ return td(v,{b:1}); }).join(''));
+  var crit = '<div style="font-weight:700;font-size:11pt;margin-top:1mm">เกณฑ์การประเมิน'+esc(title[2])+'</div><div style="display:flex;justify-content:space-around;font-size:10.5pt;line-height:1.35"><div>คะแนน 3 &nbsp;&nbsp;&nbsp;ระดับคุณภาพ ดีเยี่ยม<br>คะแนน 1 &nbsp;&nbsp;&nbsp;ระดับคุณภาพ ผ่าน</div><div>คะแนน 2 &nbsp;&nbsp;&nbsp;ระดับคุณภาพ ดี<br>คะแนน 0 &nbsp;&nbsp;&nbsp;ระดับคุณภาพ ไม่ผ่าน</div></div>';
+  return rpPage(rpHead(['สรุปการประเมิน'+title[3]+' '+rpTitleLine(b)], 11) + rpTbl(w, head+rows.join('')+mode, f.fs) + crit + rpSign());
+}
+function rpTraits(b){ return rpRating(b, 'trait', 'read', ['คุณลักษณะอันพึงประสงค์','การอ่าน คิดวิเคราะห์ และเขียนสื่อความ','คุณลักษณะอันพึงประสงค์ การอ่าน คิดวิเคราะห์ และเขียน','คุณลักษณะอันพึงประสงค์ - การอ่าน คิดวิเคราะห์ และเขียนสื่อความ'], TRAIT_S, READ_L.map(function(x,i){ return String(i+1); })); }
+function rpValues(b){ return rpRating(b, 'value', 'comp', ['ค่านิยมหลัก 12 ประการ','สมรรถนะสำคัญของผู้เรียน','ค่านิยมหลัก 12 ประการ และสมรรถนะสำคัญของผู้เรียน','ค่านิยมหลัก 12 ประการ - สมรรถนะสำคัญของผู้เรียน'], VALUE_L.map(function(x,i){ return String(i+1); }), COMP_S()); }
+function COMP_S(){ return ['สื่อสาร','คิด','แก้ปัญหา','ทักษะชีวิต','เทคโนโลยี']; }
+
+/* ---------- 9) หน้าอ้างอิง (คำอธิบายคุณลักษณะ ค่านิยม สมรรถนะ) ---------- */
+function rpText(inner){ return rpPage('<div style="font-size:12.5pt;line-height:1.3;padding:2mm 4mm">'+inner+'</div>'); }
+function rpRefTitle(t1, t2){ return '<div style="text-align:center;font-weight:700;font-size:17pt;line-height:1.25">'+t1+(t2?'<br><span style="font-size:14pt">'+t2+'</span>':'')+'</div><div style="height:3mm"></div>'; }
+function rpRefPages(b){
+  var cl = b.report.classLevel || '', band = /^ม\.[4-6]/.test(cl) ? 3 : (/^ม\./.test(cl) ? 2 : (/^ป\.[4-6]/.test(cl) ? 1 : 0)), rd = REF_READ[band];
+  var item = function(x){ return '<div style="margin:0 0 3mm"><b>'+esc(x.t)+'</b><div style="text-indent:8mm">'+esc(x.d)+'</div>'+(x.p?'<div style="text-indent:8mm;margin-top:1mm">'+esc(x.p)+'</div>':'')+'</div>'; };
+  var head = rpRefTitle('คุณลักษณะอันพึงประสงค์', 'ตามหลักสูตรแกนกลางการศึกษาขั้นพื้นฐาน พุทธศักราช ๒๕๕๑');
+  var pgs = [];
+  pgs.push({o:'port', h: rpText(head + '<div style="text-indent:8mm;margin-bottom:3mm">หลักสูตรแกนกลางการศึกษาขั้นพื้นฐาน พุทธศักราช ๒๕๕๑ กำหนดคุณลักษณะอันพึงประสงค์ ๘ ประการ ดังนี้</div>' + REF_TRAIT.slice(0,4).map(item).join(''))});
+  pgs.push({o:'port', h: rpText(REF_TRAIT.slice(4).map(item).join(''))});
+  var readHtml = rpRefTitle('การอ่าน คิดวิเคราะห์ และเขียนสื่อความ', esc(rd.b)) + '<div style="margin-bottom:2mm"><b>ขอบเขตการประเมิน</b><div style="text-indent:8mm">'+esc(rd.s)+'</div></div><div><b>ตัวชี้วัดความสามารถในการอ่าน คิดวิเคราะห์ และเขียนสื่อความ</b>'+rd.i.map(function(x,i){ return '<div style="margin:1mm 0 0 8mm">'+(i+1)+'. '+esc(x)+'</div>'; }).join('')+'</div>';
+  pgs.push({o:'port', h: rpText(readHtml + '<div style="height:6mm"></div>' + rpRefTitle('ค่านิยมหลัก ๑๒ ประการ') + '<div style="text-indent:8mm;margin-bottom:2mm">'+esc(REF_VALUE_INTRO)+'</div>' + REF_VALUE.map(function(x,i){ return '<div style="margin:0.8mm 0 0 8mm;text-indent:-6mm;padding-left:6mm">'+(i+1)+'. '+esc(x)+'</div>'; }).join(''))});
+  pgs.push({o:'port', h: rpText(rpRefTitle('สมรรถนะสำคัญของผู้เรียน') + '<div style="text-indent:8mm;margin-bottom:3mm">'+esc(REF_COMP_INTRO)+'</div>' + REF_COMP.map(function(x,i){ return '<div style="margin:0 0 3mm;text-indent:8mm">'+(i+1)+'. '+esc(x)+'</div>'; }).join(''))});
+  return pgs;
+}
+
+/* ---------- ประกอบเล่มประจำชั้น ---------- */
+function bookClassPages(b, secs){
+  var pgs = [], has = function(n){ return secs.indexOf(n) >= 0; };
+  C.cl = b.report.classLevel; RATE_FRAC = b.ratings.frac || RATE_FRAC;
+  var P = function(h){ pgs.push({o:'port', h:h}); };
+  if(has(1)){ P(classCoverHtml(b.report)); b.detail.forEach(function(det){ P(subjCoverHtml(det, b)); }); }
+  if(has(2)) P(rpStudents(b));
+  if(has(3)) P(rpParents(b));
+  if(has(4)) P(rpGuardians(b));
+  if(has(5)) pgs = pgs.concat(rpAttPages(b));
+  if(has(6)) pgs = pgs.concat(rpNutPages(b));
+  if(has(7)) b.detail.forEach(function(det){
+    var d = {subject: det.subject, assessments: det.assessments, scores: det.scores, status: det.status, school: b.school,
+             students: b.report.students.map(function(s){ return {studentId:s.studentId, no:s.no, name:s.name, moved:s.status}; }), attPct: {}};
+    b.report.students.forEach(function(s){ d.attPct[s.studentId] = s.att.pct; });
+    P(rpPage(pp5Html(d)));
+  });
+  if(has(13)){ pgs.push({o:'land', h: rpSumAch(b)}); P(rpLevels(b)); P(rpScores(b)); }
+  if(has(8)) P(rpTraits(b));
+  if(has(9)) P(rpValues(b));
+  if(has(10)) P(rpActs(b));
+  if(has(11)){
+    pgs = pgs.concat(rpRefPages(b));
+    var h = bkHead('เอกสารแนบท้าย: รายวิชาและตัวชี้วัด', b) + '<table style="width:100%"><thead><tr><th>รหัสวิชา</th><th>รายวิชา</th><th>กลุ่มสาระ</th><th>ภาค</th><th>ชั่วโมง</th><th>ครูผู้สอน</th></tr></thead><tbody>'
+      + b.detail.map(function(x){ var s = x.subject; return '<tr><td>'+esc(s.code)+'</td><td style="text-align:left">'+esc(s.name)+'</td><td style="text-align:left">'+esc(s.group||'')+'</td><td>'+esc(s.term)+'</td><td>'+esc(s.hours||'')+'</td><td style="text-align:left">'+esc(s.teacher||'')+'</td></tr>'; }).join('') + '</tbody></table><br>';
+    b.detail.forEach(function(x){ var s = x.subject; h += '<p style="margin:4px 0"><b>'+esc(s.code)+' '+esc(s.name)+'</b>'+(s.kind==='pass'?' — ประเมินผ่าน/ไม่ผ่าน':' (ระหว่างเรียน:ปลายปี '+esc(s.ratioDuring)+':'+esc(s.ratioFinal)+')')+'<br>'
+      + (x.assessments.length ? x.assessments.map(function(a,i){ return (i+1)+'. '+esc(a.name)+' ['+aTypeLabel(a)+', เต็ม '+esc(a.max)+']'; }).join(' · ') : '<span class="mute">ยังไม่ได้ตั้งช่องคะแนน</span>')+'</p>'; });
+    P(rpFlow(h));
+  }
+  if(has(12)) P(rpFlow(bkBack(b)));
+  return pgs;
 }
 
 /*@@MODULES_END@@*/
