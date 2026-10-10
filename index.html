@@ -588,7 +588,7 @@ function fixPrintTables(root){
 function doPrint(html, orient){
   $('print').innerHTML = String(html).replace(/\.{22,}/g, '....................'); fixPrintTables($('print'));
   var st = $('pgStyle'); if(!st){ st = document.createElement('style'); st.id = 'pgStyle'; document.head.appendChild(st); }
-  st.textContent = '@media print{@page{size:A4 portrait;margin:10mm}#print table{table-layout:fixed;border-collapse:collapse;width:100%}#print td{overflow:hidden;white-space:nowrap;text-overflow:clip}#print th{overflow:hidden;word-break:break-word;line-height:1.15}#print tr{height:6.2mm}}';
+  st.textContent = '@media print{#print,#print *{font-family:"TH Sarabun PSK","THSarabunPSK","TH SarabunPSK","TH Sarabun New","Sarabun",sans-serif !important}@page{size:A4 portrait;margin:10mm}#print table{table-layout:fixed;border-collapse:collapse;width:100%}#print td{overflow:hidden;white-space:nowrap;text-overflow:clip}#print th{overflow:hidden;word-break:break-word;line-height:1.15}#print tr{height:6.2mm}}';
   setTimeout(function(){ window.print(); }, 60);
 }
 function cErr(e){ var el = $('cMsg') || $('sMsg'); if(el) note(el, e.message, true); else alert(e.message); }
